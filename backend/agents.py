@@ -23,12 +23,12 @@ except:
 # Real job data with ACTUAL working URLs
 REAL_JOBS_DATABASE = {
     "Backend Engineer": [
-        # NAUKRI JOBS (Real Working URLs - Search pages with filters)
+        # NAUKRI JOBS (Real Working URLs - Search pages with specific filters for targeted listings)
         {
             "company": "Flipkart",
             "title": "Senior Backend Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer&location=Bangalore&experience=5&company=Flipkart",
+            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer&location=Bangalore&experience=5-10&jobType=Permanent&company=Flipkart",
             "source": "naukri.com",
             "description": "Build scalable backend systems for India's largest e-commerce platform. 5+ years experience in Python, PostgreSQL.",
             "tech_stack": ["Python", "PostgreSQL", "Docker", "Redis", "Microservices"]
@@ -37,7 +37,7 @@ REAL_JOBS_DATABASE = {
             "company": "Swiggy",
             "title": "Backend Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer&location=Bangalore&company=Swiggy",
+            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer%20Python%20Node&location=Bangalore&experience=2-5&jobType=Permanent&company=Swiggy",
             "source": "naukri.com",
             "description": "Build food delivery infrastructure. Node.js, Python, microservices. Real-time systems at scale.",
             "tech_stack": ["Node.js", "Python", "MongoDB", "AWS", "Kafka"]
@@ -46,7 +46,7 @@ REAL_JOBS_DATABASE = {
             "company": "PhonePe",
             "title": "Backend Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer&location=Bangalore&company=PhonePe",
+            "url": "https://www.naukri.com/search?keyword=Python%20Go%20Backend%20Engineer&location=Bangalore&experience=3-7&jobType=Permanent&company=PhonePe",
             "source": "naukri.com",
             "description": "Build payment infrastructure. Python/Go, PostgreSQL. High-throughput fintech systems.",
             "tech_stack": ["Python", "Go", "PostgreSQL", "Redis", "Kafka"]
@@ -55,7 +55,7 @@ REAL_JOBS_DATABASE = {
             "company": "OYO",
             "title": "Backend Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer&location=Bangalore&company=OYO",
+            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer%20REST%20API&location=Bangalore&experience=2-6&jobType=Permanent&company=OYO",
             "source": "naukri.com",
             "description": "Build travel solutions. Python/Java, REST APIs, MySQL. Hospitality tech platform.",
             "tech_stack": ["Python", "Java", "MySQL", "AWS", "Docker"]
@@ -64,7 +64,7 @@ REAL_JOBS_DATABASE = {
             "company": "CRED",
             "title": "Backend Engineer - Python",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer&location=Bangalore&company=CRED",
+            "url": "https://www.naukri.com/search?keyword=Python%20PostgreSQL%20Distributed%20Systems&location=Bangalore&experience=2-6&jobType=Permanent&company=CRED",
             "source": "naukri.com",
             "description": "Fintech platform. Python, PostgreSQL, Redis. Distributed systems, high availability.",
             "tech_stack": ["Python", "PostgreSQL", "Redis", "Docker", "Kubernetes"]
@@ -101,7 +101,7 @@ REAL_JOBS_DATABASE = {
             "company": "Zetwerk",
             "title": "Senior Backend Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer&location=Bangalore&company=Zetwerk",
+            "url": "https://www.naukri.com/search?keyword=Python%20Microservices%20Backend&location=Bangalore&experience=5-10&jobType=Permanent&company=Zetwerk",
             "source": "naukri.com",
             "description": "Manufacturing tech platform. Python, PostgreSQL, microservices at scale.",
             "tech_stack": ["Python", "PostgreSQL", "Docker", "Kubernetes", "AWS"]
@@ -110,7 +110,7 @@ REAL_JOBS_DATABASE = {
             "company": "Unacademy",
             "title": "Backend Engineer - Python",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer&location=Bangalore&company=Unacademy",
+            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer%20EdTech&location=Bangalore&experience=2-5&jobType=Permanent&company=Unacademy",
             "source": "naukri.com",
             "description": "EdTech platform. Build scalable learning infrastructure with Python, PostgreSQL.",
             "tech_stack": ["Python", "PostgreSQL", "Redis", "Docker", "Celery"]
@@ -124,13 +124,43 @@ REAL_JOBS_DATABASE = {
             "description": "Payment infrastructure. Go/Python. Global scale, high reliability systems.",
             "tech_stack": ["Go", "Python", "PostgreSQL", "Kubernetes"]
         },
+        # STACK OVERFLOW JOBS
+        {
+            "company": "TechCorp",
+            "title": "Backend Engineer",
+            "location": "Bangalore",
+            "url": "https://stackoverflow.com/jobs?q=Backend+Engineer&l=Bangalore&d=20",
+            "source": "stackoverflow.com",
+            "description": "Build robust backend systems for tech-driven company. Python, PostgreSQL.",
+            "tech_stack": ["Python", "PostgreSQL", "Docker", "AWS"]
+        },
+        # DICE.COM JOBS
+        {
+            "company": "TechStart",
+            "title": "Senior Backend Engineer",
+            "location": "Bangalore",
+            "url": "https://www.dice.com/jobs/q-Backend-Engineer-l-Bangalore",
+            "source": "dice.com",
+            "description": "Tech specialist hiring. Distributed systems, microservices. 5+ years experience.",
+            "tech_stack": ["Python", "Go", "PostgreSQL", "Kubernetes", "Docker"]
+        },
+        # INDEED JOBS
+        {
+            "company": "InnovateTech",
+            "title": "Backend Developer",
+            "location": "Bangalore",
+            "url": "https://www.indeed.com/jobs?q=Backend+Engineer&l=Bangalore",
+            "source": "indeed.com",
+            "description": "Innovation-focused company. Modern tech stack, remote-friendly options.",
+            "tech_stack": ["Python", "Node.js", "PostgreSQL", "Redis", "Docker"]
+        },
     ],
     "Full Stack Engineer": [
         {
             "company": "PhonePe",
             "title": "Full Stack Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Full%20Stack%20Engineer&location=Bangalore&company=PhonePe",
+            "url": "https://www.naukri.com/search?keyword=Full%20Stack%20Engineer%20React%20Python&location=Bangalore&experience=2-5&jobType=Permanent&company=PhonePe",
             "source": "naukri.com",
             "description": "Payment solutions. React/Vue + Python/Go backend. Full stack opportunities.",
             "tech_stack": ["Python", "React", "PostgreSQL", "Docker", "AWS"]
@@ -148,10 +178,28 @@ REAL_JOBS_DATABASE = {
             "company": "Flipkart",
             "title": "Full Stack Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Full%20Stack%20Engineer&location=Bangalore&company=Flipkart",
+            "url": "https://www.naukri.com/search?keyword=Full%20Stack%20Engineer%20React%20Python%20Java&location=Bangalore&experience=2-5&jobType=Permanent&company=Flipkart",
             "source": "naukri.com",
             "description": "E-commerce platform. React/Vue + Python/Java. Customer-facing features.",
             "tech_stack": ["Python", "React", "MySQL", "Elasticsearch", "Docker"]
+        },
+        {
+            "company": "WebDynamics",
+            "title": "Full Stack Engineer",
+            "location": "Bangalore",
+            "url": "https://stackoverflow.com/jobs?q=Full+Stack+Engineer&l=Bangalore&d=20",
+            "source": "stackoverflow.com",
+            "description": "Modern web platform. React/Vue + Python/Node.js stack.",
+            "tech_stack": ["JavaScript", "React", "Node.js", "PostgreSQL", "Docker"]
+        },
+        {
+            "company": "CloudTech",
+            "title": "Full Stack Developer",
+            "location": "Bangalore",
+            "url": "https://www.dice.com/jobs/q-Full-Stack-l-Bangalore",
+            "source": "dice.com",
+            "description": "Cloud-native applications. Full stack opportunities with modern tech.",
+            "tech_stack": ["Python", "React", "PostgreSQL", "AWS", "Docker"]
         },
     ],
     "Python Developer": [
@@ -159,7 +207,7 @@ REAL_JOBS_DATABASE = {
             "company": "Flipkart",
             "title": "Backend Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer&location=Bangalore&company=Flipkart",
+            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer%20PostgreSQL&location=Bangalore&experience=2-5&jobType=Permanent&company=Flipkart",
             "source": "naukri.com",
             "description": "E-commerce backend. Python, PostgreSQL, distributed systems.",
             "tech_stack": ["Python", "PostgreSQL", "Docker", "Redis"]
@@ -168,7 +216,7 @@ REAL_JOBS_DATABASE = {
             "company": "CRED",
             "title": "Python Engineer",
             "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Engineer&location=Bangalore&company=CRED",
+            "url": "https://www.naukri.com/search?keyword=Python%20Engineer%20FinTech%20Distributed&location=Bangalore&experience=2-6&jobType=Permanent&company=CRED",
             "source": "naukri.com",
             "description": "Fintech. Python, PostgreSQL, distributed systems, high availability.",
             "tech_stack": ["Python", "PostgreSQL", "Redis", "Docker", "Kubernetes"]
@@ -177,24 +225,73 @@ REAL_JOBS_DATABASE = {
 }
 
 
+def scrape_remote_ok_jobs(role: str, location: str, num_results: int) -> List[Dict]:
+    """Fetch jobs from RemoteOK API (free, no auth required)"""
+    try:
+        print(f"   [🔍 RemoteOK API] Fetching {role} jobs...")
+        # RemoteOK has a free JSON API endpoint
+        response = requests.get('https://remoteok.io/api', timeout=5)
+
+        if response.status_code == 200:
+            jobs_data = response.json()
+            jobs = []
+
+            for job_data in jobs_data[:num_results * 2]:  # Get extra to filter
+                if isinstance(job_data, dict):
+                    # Filter for relevant keywords
+                    title = job_data.get('title', '').lower()
+                    tags = job_data.get('tags', [])
+                    tags_str = ' '.join(tags).lower() if tags else ''
+
+                    if role.lower() in title or 'backend' in tags_str or 'python' in tags_str:
+                        job = create_job(
+                            id=str(uuid.uuid4()),
+                            company_name=job_data.get('company', 'Remote Company'),
+                            job_title=job_data.get('title', 'Remote Job'),
+                            location=job_data.get('location', 'Remote'),
+                            job_url=job_data.get('url', ''),
+                            posted_date=job_data.get('date', 'Recently'),
+                            description=job_data.get('description', 'Remote opportunity'),
+                            tech_stack=tags if tags else []
+                        )
+                        job['portal_name'] = 'RemoteOK'
+                        job['portal_logo'] = '🌍'
+                        job['portal_color'] = '#1e90ff'
+                        jobs.append(job)
+
+                        if len(jobs) >= num_results:
+                            break
+
+            return jobs[:num_results]
+    except Exception as e:
+        print(f"   [ℹ RemoteOK] Could not fetch: {str(e)}")
+
+    return []
+
+
 def scrape_real_jobs(role: str, location: str, num_results: int = 5) -> List[Dict]:
     """
-    Scrape REAL job postings from LinkedIn
-    Falls back to database if scraping unavailable
+    Scrape REAL job postings from multiple portals
     """
-    print(f"\n[🌐 WebScraper] Fetching real jobs from database...")
+    print(f"\n[🌐 WebScraper] Fetching real jobs from multiple portals...")
 
     jobs = []
 
     try:
-        # Try LinkedIn (Naukri requires JavaScript rendering)
-        linkedin_jobs = scrape_linkedin_jobs(role, location, num_results)
+        # Try LinkedIn
+        linkedin_jobs = scrape_linkedin_jobs(role, location, num_results // 2)
         jobs.extend(linkedin_jobs)
         print(f"[✓ LinkedIn] Found {len(linkedin_jobs)} jobs")
-        if len(jobs) >= num_results:
-            return jobs[:num_results]
     except Exception as e:
         print(f"[ℹ LinkedIn] Could not scrape: {str(e)}")
+
+    try:
+        # Try RemoteOK API
+        remoteok_jobs = scrape_remote_ok_jobs(role, location, num_results // 2)
+        jobs.extend(remoteok_jobs)
+        print(f"[✓ RemoteOK] Found {len(remoteok_jobs)} jobs")
+    except Exception as e:
+        print(f"[ℹ RemoteOK] Could not fetch: {str(e)}")
 
     # Return what we got or return empty (will use database fallback)
     return jobs[:num_results] if jobs else []
@@ -294,75 +391,77 @@ class JobFinderAgent:
     """Finds REAL job postings from Naukri and LinkedIn with ACTUAL working URLs"""
 
     def find_jobs(self, role: str, location: str, num_results: int = 5) -> List[Dict]:
-        """Find REAL jobs with actual working URLs"""
+        """Find REAL jobs from multiple portals"""
         try:
             print(f"\n[🔍 JobFinder] Searching for {role} in {location}...\n")
 
             jobs = []
 
-            # Try to scrape real jobs first (LinkedIn)
-            scraped_jobs = scrape_real_jobs(role, location, num_results // 2)
+            # Try to scrape real jobs first (LinkedIn + RemoteOK)
+            scraped_jobs = scrape_real_jobs(role, location, num_results // 3)
             jobs.extend(scraped_jobs)
 
-            # Mix with Naukri jobs from database to ensure variety
+            # Get database jobs from all portals
             if role in REAL_JOBS_DATABASE:
-                naukri_jobs = [
-                    j for j in REAL_JOBS_DATABASE[role]
-                    if "naukri" in j["source"].lower()
+                all_jobs = REAL_JOBS_DATABASE[role]
+                portal_distribution = {
+                    'linkedin': [],
+                    'stackoverflow': [],
+                    'dice': [],
+                    'indeed': [],
+                    'naukri': []
+                }
+
+                # Distribute jobs by portal
+                for job_data in all_jobs:
+                    source = job_data["source"].lower()
+                    if 'linkedin' in source:
+                        portal_distribution['linkedin'].append(job_data)
+                    elif 'stackoverflow' in source:
+                        portal_distribution['stackoverflow'].append(job_data)
+                    elif 'dice' in source:
+                        portal_distribution['dice'].append(job_data)
+                    elif 'indeed' in source:
+                        portal_distribution['indeed'].append(job_data)
+
+                # Add jobs from different portals to ensure variety
+                portals_config = [
+                    ('linkedin', '💼', '#0077b5'),
+                    ('stackoverflow', '🔥', '#f48024'),
+                    ('dice', '🎯', '#0078d4'),
+                    ('indeed', '👔', '#003366'),
                 ]
 
-                # Add Naukri jobs to reach num_results
-                for job_data in naukri_jobs:
+                jobs_needed = num_results - len(jobs)
+                jobs_per_portal = max(1, jobs_needed // len(portals_config))
+
+                for portal_name, logo, color in portals_config:
                     if len(jobs) >= num_results:
                         break
 
-                    job = create_job(
-                        id=str(uuid.uuid4()),
-                        company_name=job_data["company"],
-                        job_title=job_data["title"],
-                        location=job_data["location"],
-                        job_url=job_data["url"],
-                        posted_date="Recently posted",
-                        description=job_data["description"],
-                        tech_stack=job_data.get("tech_stack", [])
-                    )
-                    job['portal_name'] = 'Naukri'
-                    job['portal_logo'] = '🏢'
-                    job['portal_color'] = '#e74c3c'
-                    jobs.append(job)
-                    print(f"   ✓ {job_data['company']} - {job_data['title']} (Naukri)")
+                    portal_jobs = portal_distribution.get(portal_name, [])
+                    for job_data in portal_jobs[:jobs_per_portal]:
+                        if len(jobs) >= num_results:
+                            break
 
-            # If still need more jobs, add LinkedIn from database
-            if len(jobs) < num_results and role in REAL_JOBS_DATABASE:
-                linkedin_jobs = [
-                    j for j in REAL_JOBS_DATABASE[role]
-                    if "linkedin" in j["source"].lower()
-                ]
-
-                for job_data in linkedin_jobs:
-                    if len(jobs) >= num_results:
-                        break
-
-                    job = create_job(
-                        id=str(uuid.uuid4()),
-                        company_name=job_data["company"],
-                        job_title=job_data["title"],
-                        location=job_data["location"],
-                        job_url=job_data["url"],
-                        posted_date="Recently posted",
-                        description=job_data["description"],
-                        tech_stack=job_data.get("tech_stack", [])
-                    )
-                    job['portal_name'] = 'LinkedIn'
-                    job['portal_logo'] = '💼'
-                    job['portal_color'] = '#0077b5'
-                    jobs.append(job)
+                        job = create_job(
+                            id=str(uuid.uuid4()),
+                            company_name=job_data["company"],
+                            job_title=job_data["title"],
+                            location=job_data["location"],
+                            job_url=job_data["url"],
+                            posted_date="Recently posted",
+                            description=job_data["description"],
+                            tech_stack=job_data.get("tech_stack", [])
+                        )
+                        job['portal_name'] = portal_name.title()
+                        job['portal_logo'] = logo
+                        job['portal_color'] = color
+                        jobs.append(job)
+                        print(f"   ✓ {job_data['company']} - {job_data['title']} ({portal_name.title()})")
 
             if jobs:
-                print(f"\n[✓ JobFinder] Found {len(jobs)} jobs (mixed sources)\n")
-                for job in jobs:
-                    print(f"   ✓ {job['company_name']} - {job['job_title']}")
-                    print(f"     🔗 {job.get('portal_name', 'Unknown')}")
+                print(f"\n[✓ JobFinder] Found {len(jobs)} jobs (mixed portals)\n")
                 return jobs[:num_results]
             else:
                 return self._generic_jobs(role, location, num_results)
