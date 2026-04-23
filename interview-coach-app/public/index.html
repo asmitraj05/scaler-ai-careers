@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scaler Interview Coach - DSA Problem Generator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-content">
+        <h1>🎯 Scaler Interview Coach</h1>
+        <p>Master DSA Problems & Get Better at Coding Interviews</p>
+      </div>
+    </header>
+
+    <div class="main-wrapper">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h3>Quick Actions</h3>
+          <button class="btn btn-primary" onclick="showGenerateQuestion()">
+            ➕ Generate Problem
+          </button>
+          <button class="btn btn-secondary" onclick="showGetHint()">
+            💡 Get Hint
+          </button>
+          <button class="btn btn-secondary" onclick="showEvaluateAnswer()">
+            ✅ Evaluate Answer
+          </button>
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Topics</h3>
+          <div class="topic-list">
+            <button class="topic-btn" onclick="generateForTopic('Trees')">Trees</button>
+            <button class="topic-btn" onclick="generateForTopic('Arrays')">Arrays</button>
+            <button class="topic-btn" onclick="generateForTopic('LinkedList')">Linked List</button>
+            <button class="topic-btn" onclick="generateForTopic('Graphs')">Graphs</button>
+            <button class="topic-btn" onclick="generateForTopic('DynamicProgramming')">DP</button>
+            <button class="topic-btn" onclick="generateForTopic('BinarySearch')">Binary Search</button>
+            <button class="topic-btn" onclick="generateForTopic('Strings')">Strings</button>
+            <button class="topic-btn" onclick="generateForTopic('Hashing')">Hashing</button>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Difficulty</h3>
+          <div class="difficulty-buttons">
+            <button class="difficulty-btn" data-level="easy">Easy</button>
+            <button class="difficulty-btn" data-level="medium">Medium</button>
+            <button class="difficulty-btn" data-level="hard">Hard</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-container">
+        <div id="chatBox" class="chat-box">
+          <div class="welcome-message">
+            <h2>Welcome to Scaler Interview Coach! 👋</h2>
+            <p>Choose an action from the left or ask a question below to get started.</p>
+            <div class="example-prompts">
+              <p><strong>Try these:</strong></p>
+              <button onclick="askQuestion('Generate a hard tree problem')">Generate a hard tree problem</button>
+              <button onclick="askQuestion('How to solve tree traversal problems')">How to solve tree traversal</button>
+              <button onclick="askQuestion('Generate an easy array problem')">Generate an easy array problem</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-area">
+          <div class="input-wrapper">
+            <input
+              type="text"
+              id="messageInput"
+              placeholder="Ask any DSA question or describe your problem..."
+              onkeypress="handleKeyPress(event)"
+            >
+            <button id="sendBtn" onclick="askQuestion(document.getElementById('messageInput').value)">
+              Send
+            </button>
+          </div>
+          <div id="loadingIndicator" class="loading hidden">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Modal for Generate Question -->
+    <div id="generateModal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('generateModal')">&times;</span>
+        <h2>Generate DSA Problem</h2>
+        <div class="form-group">
+          <label>Topic:</label>
+          <input type="text" id="topic" placeholder="e.g., Trees, Arrays, Graphs">
+        </div>
+        <div class="form-group">
+          <label>Difficulty:</label>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="submitGenerateQuestion()">Generate Problem</button>
+      </div>
+    </div>
+
+    <!-- Modal for Get Hint -->
+    <div id="hintModal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('hintModal')">&times;</span>
+        <h2>Get Hint</h2>
+        <div class="form-group">
+          <label>Problem:</label>
+          <textarea id="problemText" placeholder="Paste or describe the problem..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Where are you stuck?</label>
+          <textarea id="stuckPoint" placeholder="Describe what you're struggling with..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="submitGetHint()">Get Hint</button>
+      </div>
+    </div>
+
+    <!-- Modal for Evaluate Answer -->
+    <div id="evaluateModal" class="modal hidden">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('evaluateModal')">&times;</span>
+        <h2>Evaluate Your Answer</h2>
+        <div class="form-group">
+          <label>Problem:</label>
+          <textarea id="evalProblem" placeholder="Paste the problem..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Your Answer/Approach:</label>
+          <textarea id="evalAnswer" placeholder="Paste your solution or approach..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="submitEvaluateAnswer()">Evaluate</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "interview-coach": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "cd /Users/asmitraj/Desktop/interview-prep-coach-mcp && source venv/bin/activate && python3 server.py"
+      ]
+    }
+  }
+}
