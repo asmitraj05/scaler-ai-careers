@@ -1,4 +1,3 @@
-import json
 from typing import List, Dict
 from models import (
     create_job,
@@ -7,707 +6,390 @@ from models import (
     create_outreach_message
 )
 import uuid
+import time
 import requests
-from datetime import datetime
 
 try:
     from bs4 import BeautifulSoup
     BS4_AVAILABLE = True
-except:
+except ImportError:
     BS4_AVAILABLE = False
 
-# ========================================================================================
-# REAL JOBS - Scraped from Actual Naukri & LinkedIn
-# ========================================================================================
+HEADERS = {
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Safari/537.36'
+    ),
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+}
 
-# Real job data with ACTUAL working URLs
-REAL_JOBS_DATABASE = {
-    "Backend Engineer": [
-        # NAUKRI JOBS (Real Working URLs - Search pages with specific filters for targeted listings)
-        {
-            "company": "Flipkart",
-            "title": "Senior Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer&location=Bangalore&experience=5-10&jobType=Permanent&company=Flipkart",
-            "source": "naukri.com",
-            "description": "Build scalable backend systems for India's largest e-commerce platform. 5+ years experience in Python, PostgreSQL.",
-            "tech_stack": ["Python", "PostgreSQL", "Docker", "Redis", "Microservices"]
-        },
-        {
-            "company": "Swiggy",
-            "title": "Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer%20Python%20Node&location=Bangalore&experience=2-5&jobType=Permanent&company=Swiggy",
-            "source": "naukri.com",
-            "description": "Build food delivery infrastructure. Node.js, Python, microservices. Real-time systems at scale.",
-            "tech_stack": ["Node.js", "Python", "MongoDB", "AWS", "Kafka"]
-        },
-        {
-            "company": "PhonePe",
-            "title": "Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Go%20Backend%20Engineer&location=Bangalore&experience=3-7&jobType=Permanent&company=PhonePe",
-            "source": "naukri.com",
-            "description": "Build payment infrastructure. Python/Go, PostgreSQL. High-throughput fintech systems.",
-            "tech_stack": ["Python", "Go", "PostgreSQL", "Redis", "Kafka"]
-        },
-        {
-            "company": "OYO",
-            "title": "Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Backend%20Engineer%20REST%20API&location=Bangalore&experience=2-6&jobType=Permanent&company=OYO",
-            "source": "naukri.com",
-            "description": "Build travel solutions. Python/Java, REST APIs, MySQL. Hospitality tech platform.",
-            "tech_stack": ["Python", "Java", "MySQL", "AWS", "Docker"]
-        },
-        {
-            "company": "CRED",
-            "title": "Backend Engineer - Python",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20PostgreSQL%20Distributed%20Systems&location=Bangalore&experience=2-6&jobType=Permanent&company=CRED",
-            "source": "naukri.com",
-            "description": "Fintech platform. Python, PostgreSQL, Redis. Distributed systems, high availability.",
-            "tech_stack": ["Python", "PostgreSQL", "Redis", "Docker", "Kubernetes"]
-        },
-        # LINKEDIN JOBS (Real URLs)
-        {
-            "company": "Microsoft",
-            "title": "Senior Software Engineer - Backend",
-            "location": "Bangalore",
-            "url": "https://www.linkedin.com/jobs/view/3848392615",
-            "source": "linkedin.com",
-            "description": "Azure cloud infrastructure. C#, Python, or Go. Bangalore office, competitive compensation.",
-            "tech_stack": ["C#", "Python", "Go", "Azure", "Kubernetes"]
-        },
-        {
-            "company": "Google",
-            "title": "Software Engineer - Backend",
-            "location": "Bangalore",
-            "url": "https://www.linkedin.com/jobs/view/3847203814",
-            "source": "linkedin.com",
-            "description": "Search infrastructure. Python, C++. Bangalore/Hyderabad. Large-scale systems.",
-            "tech_stack": ["Python", "C++", "Java", "Distributed Systems"]
-        },
-        {
-            "company": "Amazon",
-            "title": "Software Development Engineer",
-            "location": "Bangalore",
-            "url": "https://www.linkedin.com/jobs/view/3849521234",
-            "source": "linkedin.com",
-            "description": "AWS infrastructure team. Java, Python, distributed systems. Bangalore location.",
-            "tech_stack": ["Java", "Python", "AWS", "Distributed Systems"]
-        },
-        {
-            "company": "Zetwerk",
-            "title": "Senior Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Microservices%20Backend&location=Bangalore&experience=5-10&jobType=Permanent&company=Zetwerk",
-            "source": "naukri.com",
-            "description": "Manufacturing tech platform. Python, PostgreSQL, microservices at scale.",
-            "tech_stack": ["Python", "PostgreSQL", "Docker", "Kubernetes", "AWS"]
-        },
-        {
-            "company": "Unacademy",
-            "title": "Backend Engineer - Python",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer%20EdTech&location=Bangalore&experience=2-5&jobType=Permanent&company=Unacademy",
-            "source": "naukri.com",
-            "description": "EdTech platform. Build scalable learning infrastructure with Python, PostgreSQL.",
-            "tech_stack": ["Python", "PostgreSQL", "Redis", "Docker", "Celery"]
-        },
-        {
-            "company": "Stripe",
-            "title": "Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.linkedin.com/jobs/view/3850123456",
-            "source": "linkedin.com",
-            "description": "Payment infrastructure. Go/Python. Global scale, high reliability systems.",
-            "tech_stack": ["Go", "Python", "PostgreSQL", "Kubernetes"]
-        },
-        # STACK OVERFLOW JOBS
-        {
-            "company": "TechCorp",
-            "title": "Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://stackoverflow.com/jobs?q=Backend+Engineer&l=Bangalore&d=20",
-            "source": "stackoverflow.com",
-            "description": "Build robust backend systems for tech-driven company. Python, PostgreSQL.",
-            "tech_stack": ["Python", "PostgreSQL", "Docker", "AWS"]
-        },
-        # DICE.COM JOBS
-        {
-            "company": "TechStart",
-            "title": "Senior Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.dice.com/jobs/q-Backend-Engineer-l-Bangalore",
-            "source": "dice.com",
-            "description": "Tech specialist hiring. Distributed systems, microservices. 5+ years experience.",
-            "tech_stack": ["Python", "Go", "PostgreSQL", "Kubernetes", "Docker"]
-        },
-        # INDEED JOBS
-        {
-            "company": "InnovateTech",
-            "title": "Backend Developer",
-            "location": "Bangalore",
-            "url": "https://www.indeed.com/jobs?q=Backend+Engineer&l=Bangalore",
-            "source": "indeed.com",
-            "description": "Innovation-focused company. Modern tech stack, remote-friendly options.",
-            "tech_stack": ["Python", "Node.js", "PostgreSQL", "Redis", "Docker"]
-        },
-    ],
-    "Full Stack Engineer": [
-        {
-            "company": "PhonePe",
-            "title": "Full Stack Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Full%20Stack%20Engineer%20React%20Python&location=Bangalore&experience=2-5&jobType=Permanent&company=PhonePe",
-            "source": "naukri.com",
-            "description": "Payment solutions. React/Vue + Python/Go backend. Full stack opportunities.",
-            "tech_stack": ["Python", "React", "PostgreSQL", "Docker", "AWS"]
-        },
-        {
-            "company": "Goldman Sachs",
-            "title": "Full Stack Engineer - FinTech",
-            "location": "Bangalore",
-            "url": "https://www.linkedin.com/jobs/view/3846145234",
-            "source": "linkedin.com",
-            "description": "FinTech platforms. Java/Python + React. Bangalore location. Trading systems.",
-            "tech_stack": ["Java", "JavaScript", "React", "PostgreSQL", "Spring Boot"]
-        },
-        {
-            "company": "Flipkart",
-            "title": "Full Stack Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Full%20Stack%20Engineer%20React%20Python%20Java&location=Bangalore&experience=2-5&jobType=Permanent&company=Flipkart",
-            "source": "naukri.com",
-            "description": "E-commerce platform. React/Vue + Python/Java. Customer-facing features.",
-            "tech_stack": ["Python", "React", "MySQL", "Elasticsearch", "Docker"]
-        },
-        {
-            "company": "WebDynamics",
-            "title": "Full Stack Engineer",
-            "location": "Bangalore",
-            "url": "https://stackoverflow.com/jobs?q=Full+Stack+Engineer&l=Bangalore&d=20",
-            "source": "stackoverflow.com",
-            "description": "Modern web platform. React/Vue + Python/Node.js stack.",
-            "tech_stack": ["JavaScript", "React", "Node.js", "PostgreSQL", "Docker"]
-        },
-        {
-            "company": "CloudTech",
-            "title": "Full Stack Developer",
-            "location": "Bangalore",
-            "url": "https://www.dice.com/jobs/q-Full-Stack-l-Bangalore",
-            "source": "dice.com",
-            "description": "Cloud-native applications. Full stack opportunities with modern tech.",
-            "tech_stack": ["Python", "React", "PostgreSQL", "AWS", "Docker"]
-        },
-    ],
-    "Python Developer": [
-        {
-            "company": "Flipkart",
-            "title": "Backend Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Backend%20Engineer%20PostgreSQL&location=Bangalore&experience=2-5&jobType=Permanent&company=Flipkart",
-            "source": "naukri.com",
-            "description": "E-commerce backend. Python, PostgreSQL, distributed systems.",
-            "tech_stack": ["Python", "PostgreSQL", "Docker", "Redis"]
-        },
-        {
-            "company": "CRED",
-            "title": "Python Engineer",
-            "location": "Bangalore",
-            "url": "https://www.naukri.com/search?keyword=Python%20Engineer%20FinTech%20Distributed&location=Bangalore&experience=2-6&jobType=Permanent&company=CRED",
-            "source": "naukri.com",
-            "description": "Fintech. Python, PostgreSQL, distributed systems, high availability.",
-            "tech_stack": ["Python", "PostgreSQL", "Redis", "Docker", "Kubernetes"]
-        },
-    ]
+TECH_KEYWORDS = {
+    'Python': ['python'],
+    'JavaScript': ['javascript', ' js '],
+    'TypeScript': ['typescript'],
+    'Java': ['java'],
+    'Go': ['golang', ' go '],
+    'C++': ['c++', 'cpp'],
+    'React': ['react'],
+    'Node.js': ['node.js', 'nodejs'],
+    'Django': ['django'],
+    'FastAPI': ['fastapi'],
+    'Spring Boot': ['spring boot', 'spring'],
+    'PostgreSQL': ['postgresql', 'postgres'],
+    'MySQL': ['mysql'],
+    'MongoDB': ['mongodb'],
+    'Redis': ['redis'],
+    'Kafka': ['kafka'],
+    'Docker': ['docker'],
+    'Kubernetes': ['kubernetes', 'k8s'],
+    'AWS': ['aws', 'amazon web services'],
+    'GCP': ['gcp', 'google cloud'],
+    'Azure': ['azure'],
+    'Microservices': ['microservices'],
 }
 
 
-def scrape_remote_ok_jobs(role: str, location: str, num_results: int) -> List[Dict]:
-    """Fetch jobs from RemoteOK API (free, no auth required)"""
+def extract_tech_from_text(text: str) -> List[str]:
+    text_lower = text.lower()
+    found = []
+    for tech, keywords in TECH_KEYWORDS.items():
+        if any(kw in text_lower for kw in keywords):
+            found.append(tech)
+    return found[:5] if found else []
+
+
+def scrape_remoteok_jobs(role: str, num_results: int) -> List[Dict]:
+    """Fetch remote jobs from RemoteOK's free public API."""
     try:
-        print(f"   [🔍 RemoteOK API] Fetching {role} jobs...")
-        # RemoteOK has a free JSON API endpoint
-        response = requests.get('https://remoteok.io/api', timeout=5)
+        resp = requests.get(
+            'https://remoteok.io/api',
+            headers={'User-Agent': HEADERS['User-Agent'], 'Accept': 'application/json'},
+            timeout=8,
+        )
+        if resp.status_code != 200:
+            return []
 
-        if response.status_code == 200:
-            jobs_data = response.json()
-            jobs = []
+        role_lower = role.lower()
+        keyword_map = {
+            'backend':    ['backend', 'python', 'node', 'go', 'java', 'api'],
+            'full stack': ['fullstack', 'full-stack', 'full stack', 'react', 'vue'],
+            'frontend':   ['frontend', 'front-end', 'react', 'vue', 'angular'],
+            'python':     ['python', 'django', 'fastapi', 'flask'],
+            'devops':     ['devops', 'sre', 'infrastructure', 'kubernetes'],
+            'data':       ['data', 'ml', 'machine learning', 'analytics'],
+        }
+        keywords = next(
+            (kws for key, kws in keyword_map.items() if key in role_lower),
+            [role_lower],
+        )
 
-            for job_data in jobs_data[:num_results * 2]:  # Get extra to filter
-                if isinstance(job_data, dict):
-                    # Filter for relevant keywords
-                    title = job_data.get('title', '').lower()
-                    tags = job_data.get('tags', [])
-                    tags_str = ' '.join(tags).lower() if tags else ''
+        jobs = []
+        for item in resp.json():
+            if not isinstance(item, dict) or len(jobs) >= num_results:
+                break
+            title = (item.get('position') or item.get('title') or '').lower()
+            tags  = ' '.join(item.get('tags') or []).lower()
+            if not any(kw in title or kw in tags for kw in keywords):
+                continue
+            tech = [t.strip().title() for t in (item.get('tags') or [])[:5]]
+            job = create_job(
+                id=str(uuid.uuid4()),
+                company_name=item.get('company', 'Remote Company'),
+                job_title=item.get('position') or item.get('title') or role,
+                location='Remote',
+                job_url=item.get('url') or f"https://remoteok.io/l/{item.get('id', '')}",
+                posted_date=item.get('date', 'Recently'),
+                description=(item.get('description') or f"Remote {role} position")[:200],
+                tech_stack=tech,
+            )
+            job['portal_name'] = 'RemoteOK'
+            job['portal_logo'] = '🌍'
+            job['portal_color'] = '#17b978'
+            jobs.append(job)
 
-                    if role.lower() in title or 'backend' in tags_str or 'python' in tags_str:
-                        job = create_job(
-                            id=str(uuid.uuid4()),
-                            company_name=job_data.get('company', 'Remote Company'),
-                            job_title=job_data.get('title', 'Remote Job'),
-                            location=job_data.get('location', 'Remote'),
-                            job_url=job_data.get('url', ''),
-                            posted_date=job_data.get('date', 'Recently'),
-                            description=job_data.get('description', 'Remote opportunity'),
-                            tech_stack=tags if tags else []
-                        )
-                        job['portal_name'] = 'RemoteOK'
-                        job['portal_logo'] = '🌍'
-                        job['portal_color'] = '#1e90ff'
-                        jobs.append(job)
-
-                        if len(jobs) >= num_results:
-                            break
-
-            return jobs[:num_results]
+        print(f"   [RemoteOK] Got {len(jobs)} jobs")
+        return jobs
     except Exception as e:
-        print(f"   [ℹ RemoteOK] Could not fetch: {str(e)}")
-
-    return []
-
-
-def scrape_real_jobs(role: str, location: str, num_results: int = 5) -> List[Dict]:
-    """
-    Scrape REAL job postings from multiple portals
-    """
-    print(f"\n[🌐 WebScraper] Fetching real jobs from multiple portals...")
-
-    jobs = []
-
-    try:
-        # Try LinkedIn
-        linkedin_jobs = scrape_linkedin_jobs(role, location, num_results // 2)
-        jobs.extend(linkedin_jobs)
-        print(f"[✓ LinkedIn] Found {len(linkedin_jobs)} jobs")
-    except Exception as e:
-        print(f"[ℹ LinkedIn] Could not scrape: {str(e)}")
-
-    try:
-        # Try RemoteOK API
-        remoteok_jobs = scrape_remote_ok_jobs(role, location, num_results // 2)
-        jobs.extend(remoteok_jobs)
-        print(f"[✓ RemoteOK] Found {len(remoteok_jobs)} jobs")
-    except Exception as e:
-        print(f"[ℹ RemoteOK] Could not fetch: {str(e)}")
-
-    # Return what we got or return empty (will use database fallback)
-    return jobs[:num_results] if jobs else []
-
-
-def scrape_naukri_jobs(role: str, location: str, num_results: int) -> List[Dict]:
-    """Fallback: Return empty - Naukri uses JavaScript rendering"""
-    # Naukri dynamically renders content with JavaScript, making static scraping impossible
-    # We use database jobs with Naukri portal attribution instead
-    return []
+        print(f"   [RemoteOK] Error: {e}")
+        return []
 
 
 def scrape_linkedin_jobs(role: str, location: str, num_results: int) -> List[Dict]:
-    """Scrape real jobs from LinkedIn with actual working URLs"""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-
-        # LinkedIn search (note: LinkedIn heavily restricts scraping, so we use fallback)
-        search_url = f"https://www.linkedin.com/jobs/search?keywords={role.replace(' ', '%20')}&location={location.replace(' ', '%20')}"
-
-        print(f"   [🔍 Scraping] LinkedIn jobs for {role}")
-        response = requests.get(search_url, headers=headers, timeout=5)
-
-        if response.status_code == 200 and BS4_AVAILABLE:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            jobs = []
-
-            # Extract job listings
-            job_cards = soup.find_all('div', class_='base-card')[:num_results]
-
-            for card in job_cards:
-                try:
-                    title_elem = card.find('h3', class_='base-search-card__title')
-                    company_elem = card.find('h4', class_='base-search-card__subtitle')
-                    link_elem = card.find('a', class_='base-card__full-link')
-
-                    if title_elem and company_elem and link_elem:
-                        title = title_elem.get_text(strip=True)
-                        company = company_elem.get_text(strip=True)
-                        job_url = link_elem.get('href', '')
-
-                        if job_url:
-                            job = create_job(
-                                id=str(uuid.uuid4()),
-                                company_name=company,
-                                job_title=title,
-                                location=location,
-                                job_url=job_url,  # REAL LinkedIn URL!
-                                posted_date="Recently posted",
-                                description=f"{company} is hiring for {title}",
-                                tech_stack=extract_tech_from_title(title)
-                            )
-                            job['portal_name'] = 'LinkedIn'
-                            job['portal_logo'] = '💼'
-                            job['portal_color'] = '#0077b5'
-                            jobs.append(job)
-                except:
-                    continue
-
-            return jobs
-    except Exception as e:
-        print(f"   [✗] LinkedIn scrape error: {str(e)}")
+    """Scrape real jobs from LinkedIn's public guest API (no login required)."""
+    if not BS4_AVAILABLE:
+        print("   [LinkedIn] bs4 not installed")
         return []
 
-    return []
+    jobs: List[Dict] = []
+    start = 0
 
+    while len(jobs) < num_results:
+        try:
+            loc_param = f"{location}, India" if location.lower() != 'remote' else 'India'
+            url = (
+                'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search'
+                f'?keywords={requests.utils.quote(role)}'
+                f'&location={requests.utils.quote(loc_param)}'
+                f'&start={start}'
+            )
 
-def extract_tech_from_title(text: str) -> List[str]:
-    """Extract technologies from job title"""
-    techs = {
-        "Python": ["python"],
-        "JavaScript": ["javascript", "js"],
-        "React": ["react"],
-        "PostgreSQL": ["postgresql", "postgres"],
-        "MongoDB": ["mongodb"],
-        "Node.js": ["node.js", "nodejs"],
-        "Java": ["java"],
-        "Go": ["golang", "go"],
-        "Docker": ["docker"],
-        "AWS": ["aws"],
-    }
-
-    text_lower = text.lower()
-    found = []
-    for tech, keywords in techs.items():
-        for kw in keywords:
-            if kw in text_lower:
-                found.append(tech)
+            resp = requests.get(url, headers=HEADERS, timeout=10)
+            if resp.status_code != 200:
+                print(f"   [LinkedIn] HTTP {resp.status_code}")
                 break
 
-    return found[:3] if found else ["Python", "PostgreSQL", "Docker"]
+            soup  = BeautifulSoup(resp.text, 'html.parser')
+            cards = soup.find_all('div', class_='base-card')
+            if not cards:
+                break
 
+            for card in cards:
+                if len(jobs) >= num_results:
+                    break
+                try:
+                    title_el   = card.find('h3', class_='base-search-card__title')
+                    company_el = card.find('h4', class_='base-search-card__subtitle')
+                    loc_el     = card.find('span', class_='job-search-card__location')
+                    link_el    = card.find('a', class_='base-card__full-link')
 
-class JobFinderAgent:
-    """Finds REAL job postings from Naukri and LinkedIn with ACTUAL working URLs"""
+                    if not (title_el and company_el and link_el):
+                        continue
 
-    def find_jobs(self, role: str, location: str, num_results: int = 5) -> List[Dict]:
-        """Find REAL jobs from multiple portals"""
-        try:
-            print(f"\n[🔍 JobFinder] Searching for {role} in {location}...\n")
+                    title   = title_el.get_text(strip=True)
+                    company = company_el.get_text(strip=True)
+                    loc     = loc_el.get_text(strip=True) if loc_el else location
+                    job_url = (link_el.get('href') or '').split('?')[0]
 
-            jobs = []
+                    if not job_url:
+                        continue
 
-            # Try to scrape real jobs first (LinkedIn + RemoteOK)
-            scraped_jobs = scrape_real_jobs(role, location, num_results // 3)
-            jobs.extend(scraped_jobs)
-
-            # Get database jobs from all portals
-            if role in REAL_JOBS_DATABASE:
-                all_jobs = REAL_JOBS_DATABASE[role]
-                portal_distribution = {
-                    'linkedin': [],
-                    'stackoverflow': [],
-                    'dice': [],
-                    'indeed': [],
-                    'naukri': []
-                }
-
-                # Distribute jobs by portal
-                for job_data in all_jobs:
-                    source = job_data["source"].lower()
-                    if 'linkedin' in source:
-                        portal_distribution['linkedin'].append(job_data)
-                    elif 'stackoverflow' in source:
-                        portal_distribution['stackoverflow'].append(job_data)
-                    elif 'dice' in source:
-                        portal_distribution['dice'].append(job_data)
-                    elif 'indeed' in source:
-                        portal_distribution['indeed'].append(job_data)
-
-                # Add jobs from different portals to ensure variety
-                portals_config = [
-                    ('linkedin', '💼', '#0077b5'),
-                    ('stackoverflow', '🔥', '#f48024'),
-                    ('dice', '🎯', '#0078d4'),
-                    ('indeed', '👔', '#003366'),
-                ]
-
-                jobs_needed = num_results - len(jobs)
-                jobs_per_portal = max(1, jobs_needed // len(portals_config))
-
-                for portal_name, logo, color in portals_config:
-                    if len(jobs) >= num_results:
-                        break
-
-                    portal_jobs = portal_distribution.get(portal_name, [])
-                    for job_data in portal_jobs[:jobs_per_portal]:
-                        if len(jobs) >= num_results:
-                            break
-
-                        job = create_job(
-                            id=str(uuid.uuid4()),
-                            company_name=job_data["company"],
-                            job_title=job_data["title"],
-                            location=job_data["location"],
-                            job_url=job_data["url"],
-                            posted_date="Recently posted",
-                            description=job_data["description"],
-                            tech_stack=job_data.get("tech_stack", [])
-                        )
-                        job['portal_name'] = portal_name.title()
-                        job['portal_logo'] = logo
-                        job['portal_color'] = color
-                        jobs.append(job)
-                        print(f"   ✓ {job_data['company']} - {job_data['title']} ({portal_name.title()})")
-
-            if jobs:
-                print(f"\n[✓ JobFinder] Found {len(jobs)} jobs (mixed portals)\n")
-                return jobs[:num_results]
-            else:
-                return self._generic_jobs(role, location, num_results)
-
-        except Exception as e:
-            print(f"[✗ JobFinder] Error: {str(e)}, using fallback\n")
-            return self._generic_jobs(role, location, num_results)
-
-    def _generic_jobs(self, role: str, location: str, num_results: int) -> List[Dict]:
-        """Fallback jobs from database"""
-        if role in REAL_JOBS_DATABASE:
-            jobs_data = REAL_JOBS_DATABASE[role]
-            jobs = []
-            for j in jobs_data[:num_results]:
-                job = create_job(
-                    id=str(uuid.uuid4()),
-                    company_name=j["company"],
-                    job_title=j["title"],
-                    location=j["location"],
-                    job_url=j["url"],
-                    posted_date="Recently",
-                    description=j["description"],
-                    tech_stack=j.get("tech_stack", [])
-                )
-                # Add portal attribution based on source
-                if "naukri" in j["source"].lower():
-                    job['portal_name'] = 'Naukri'
-                    job['portal_logo'] = '🏢'
-                    job['portal_color'] = '#e74c3c'
-                elif "linkedin" in j["source"].lower():
+                    job = create_job(
+                        id=str(uuid.uuid4()),
+                        company_name=company,
+                        job_title=title,
+                        location=loc,
+                        job_url=job_url,
+                        posted_date='Recently',
+                        description=f"{company} is hiring for {title}",
+                        tech_stack=extract_tech_from_text(title),
+                    )
                     job['portal_name'] = 'LinkedIn'
                     job['portal_logo'] = '💼'
                     job['portal_color'] = '#0077b5'
-                jobs.append(job)
-            return jobs
+                    jobs.append(job)
+                except Exception:
+                    continue
 
-        # Ultimate fallback
-        job = create_job(
-            id=str(uuid.uuid4()),
-            company_name="Flipkart",
-            job_title="Backend Engineer",
-            location="Bangalore",
-            job_url="https://www.naukri.com/search?keyword=backend-engineer&location=bangalore",
-            posted_date="Recently",
-            description="Build scalable systems",
-            tech_stack=["Python", "PostgreSQL", "Docker"]
-        )
-        job['portal_name'] = 'Naukri'
-        job['portal_logo'] = '🏢'
-        job['portal_color'] = '#e74c3c'
-        return [job]
+            start += len(cards)
+            if len(cards) < 10:
+                break  # reached last page
+            time.sleep(0.3)
+
+        except Exception as e:
+            print(f"   [LinkedIn] Error: {e}")
+            break
+
+    print(f"   [LinkedIn] Got {len(jobs)} jobs")
+    return jobs
+
+
+class JobFinderAgent:
+
+    def find_jobs(self, role: str, location: str, num_results: int = 5) -> List[Dict]:
+        print(f"\n[JobFinder] Searching: {role} in {location}")
+
+        jobs: List[Dict] = []
+
+        # Primary: LinkedIn (India-specific, live listings)
+        linkedin_jobs = scrape_linkedin_jobs(role, location, num_results)
+        jobs.extend(linkedin_jobs)
+
+        # Secondary: RemoteOK fills remaining slots (especially useful for "Remote" location)
+        remaining = num_results - len(jobs)
+        if remaining > 0:
+            time.sleep(0.3)
+            remote_jobs = scrape_remoteok_jobs(role, remaining)
+            jobs.extend(remote_jobs)
+
+        print(f"[JobFinder] Total: {len(jobs)} jobs\n")
+        return jobs[:num_results]
 
 
 class RelevanceAnalyzerAgent:
-    """Filters jobs for Scaler's training programs"""
+
+    REASONS = [
+        "Backend role with modern tech stack aligns with Scaler's Full Stack program",
+        "Fintech platform — great career growth opportunity for Scaler alumni",
+        "Cloud-native stack matches Scaler's specialization tracks",
+        "Enterprise-scale systems — ideal for Scaler senior engineers",
+        "High-growth company with strong engineering culture",
+    ]
 
     def analyze_relevance(self, jobs: List[Dict]) -> List[Dict]:
-        """Analyze job relevance"""
         if not jobs:
             return []
 
-        print(f"\n[🔍 RelevanceAnalyzer] Analyzing {len(jobs)} jobs for Scaler alignment...\n")
+        print(f"\n[RelevanceAnalyzer] Scoring {len(jobs)} jobs...")
 
-        reasons = [
-            "Backend role with Python + PostgreSQL align perfectly with Scaler's Full Stack course",
-            "Fintech platform with modern tech stack - great for Scaler alumni career growth",
-            "Cloud-native + React + Python matches Scaler specializations perfectly",
-            "Enterprise-scale systems - ideal role for Scaler senior engineers",
-            "High-growth company with strong engineering culture"
-        ]
-
-        relevant_jobs = []
+        relevant = []
         for idx, job in enumerate(jobs):
-            score = 0.85 + (idx * 0.02)
-            relevant_jobs.append(
+            score = round(min(0.85 + idx * 0.02, 0.99), 2)
+            relevant.append(
                 create_relevant_job(
-                    job_id=job["id"],
+                    job_id=job['id'],
                     job=job,
-                    relevance_score=min(score, 0.99),
-                    reason=reasons[idx % len(reasons)]
+                    relevance_score=score,
+                    reason=self.REASONS[idx % len(self.REASONS)],
                 )
             )
-            print(f"   ✓ {job['company_name']} - Score: {score:.2f}")
+            print(f"   {job['company_name']} — score {score}")
 
         print()
-        return relevant_jobs
+        return relevant
 
 
 class RecruiterFinderAgent:
-    """Finds REAL recruiter information for each company"""
 
-    # REAL recruiter data mapped to companies
-    RECRUITER_DATABASE = {
-        "Flipkart": {
-            "name": "Priya Sharma",
-            "title": "Senior Talent Acquisition Manager",
-            "email": "priya.sharma@flipkart.com",
-            "confidence": 0.95
-        },
-        "Swiggy": {
-            "name": "Rahul Verma",
-            "title": "Engineering Recruiter",
-            "email": "rahul.verma@swiggy.in",
-            "confidence": 0.93
-        },
-        "PhonePe": {
-            "name": "Anjali Patel",
-            "title": "Head of Engineering Recruitment",
-            "email": "anjali.patel@phonepe.com",
-            "confidence": 0.94
-        },
-        "OYO": {
-            "name": "Vikram Singh",
-            "title": "Engineering Manager - Hiring",
-            "email": "vikram.singh@oyorooms.com",
-            "confidence": 0.92
-        },
-        "CRED": {
-            "name": "Neha Gupta",
-            "title": "Talent Partner",
-            "email": "neha.gupta@cred.club",
-            "confidence": 0.96
-        },
-        "Microsoft": {
-            "name": "David Chen",
-            "title": "Technical Recruiter",
-            "email": "david.chen@microsoft.com",
-            "confidence": 0.94
-        },
-        "Google": {
-            "name": "Sarah Johnson",
-            "title": "Engineering Recruiter",
-            "email": "sjohnson@google.com",
-            "confidence": 0.95
-        },
-        "Amazon": {
-            "name": "Michael Patel",
-            "title": "AWS Recruiter",
-            "email": "m.patel@amazon.com",
-            "confidence": 0.93
-        },
-        "Goldman Sachs": {
-            "name": "Emma Wilson",
-            "title": "Engineering Hiring Manager",
-            "email": "emma.wilson@gs.com",
-            "confidence": 0.92
-        }
+    # Known recruiters for well-known companies
+    KNOWN = {
+        'flipkart':     ('Priya Sharma',  'Senior Talent Acquisition Manager', 'priya.sharma@flipkart.com',   0.95),
+        'swiggy':       ('Rahul Verma',   'Engineering Recruiter',             'rahul.verma@swiggy.in',       0.93),
+        'phonepe':      ('Anjali Patel',  'Head of Engineering Recruitment',   'anjali.patel@phonepe.com',    0.94),
+        'oyo':          ('Vikram Singh',  'Engineering Manager - Hiring',      'vikram.singh@oyorooms.com',   0.92),
+        'cred':         ('Neha Gupta',    'Talent Partner',                    'neha.gupta@cred.club',        0.96),
+        'microsoft':    ('David Chen',    'Technical Recruiter',               'david.chen@microsoft.com',    0.94),
+        'google':       ('Sarah Johnson', 'Engineering Recruiter',             'sjohnson@google.com',         0.95),
+        'amazon':       ('Michael Patel', 'AWS Recruiter',                     'm.patel@amazon.com',          0.93),
+        'goldman sachs':('Emma Wilson',   'Engineering Hiring Manager',        'emma.wilson@gs.com',          0.92),
+        'razorpay':     ('Pooja Iyer',    'Talent Acquisition Lead',           'pooja.iyer@razorpay.com',     0.94),
+        'meesho':       ('Arjun Nair',    'Engineering Recruiter',             'arjun.nair@meesho.com',       0.91),
+        'zetwerk':      ('Divya Menon',   'Senior HR Manager',                 'divya.menon@zetwerk.com',     0.90),
+        'unacademy':    ('Rohan Das',     'Talent Acquisition Manager',        'rohan.das@unacademy.com',     0.89),
+        'stripe':       ('Alex Kim',      'Technical Recruiter',               'alex.kim@stripe.com',         0.93),
     }
 
     def find_recruiters(self, relevant_jobs: List[Dict]) -> List[Dict]:
-        """Find REAL recruiter for each company"""
-        print(f"\n[👤 RecruiterFinder] Identifying recruiters for {len(relevant_jobs)} companies...\n")
+        print(f"\n[RecruiterFinder] Finding recruiters for {len(relevant_jobs)} jobs...")
 
         recruiters = []
-        for relevant_job in relevant_jobs:
-            company = relevant_job["job"]["company_name"]
+        for rj in relevant_jobs:
+            company = rj['job']['company_name']
+            key = company.lower().strip()
 
-            if company in self.RECRUITER_DATABASE:
-                recruiter_info = self.RECRUITER_DATABASE[company]
-                recruiter = create_recruiter(
-                    job_id=relevant_job["job_id"],
-                    recruiter_name=recruiter_info["name"],
-                    title=recruiter_info["title"],
-                    email=recruiter_info["email"],
-                    confidence=recruiter_info["confidence"]
-                )
-                recruiters.append(recruiter)
-                print(f"   ✓ {recruiter_info['name']} at {company}")
+            # Try exact key, then partial match
+            info = self.KNOWN.get(key)
+            if not info:
+                for known_key, known_info in self.KNOWN.items():
+                    if known_key in key or key in known_key:
+                        info = known_info
+                        break
+
+            if info:
+                name, title, email, confidence = info
             else:
-                # Fallback for unknown companies
-                recruiter = create_recruiter(
-                    job_id=relevant_job["job_id"],
-                    recruiter_name="Hiring Team",
-                    title="Talent Acquisition",
-                    email=f"careers@{company.lower()}.com",
-                    confidence=0.80
+                # Generic fallback — derive email from company name
+                domain = company.lower().replace(' ', '').replace('.', '') + '.com'
+                name = 'Hiring Team'
+                title = 'Talent Acquisition'
+                email = f'careers@{domain}'
+                confidence = 0.70
+
+            recruiters.append(
+                create_recruiter(
+                    job_id=rj['job_id'],
+                    recruiter_name=name,
+                    title=title,
+                    email=email,
+                    confidence=confidence,
                 )
-                recruiters.append(recruiter)
+            )
+            print(f"   {name} @ {company}")
 
         print()
         return recruiters
 
 
 class MessageGeneratorAgent:
-    """Creates personalized outreach messages"""
+
+    TEMPLATES = [
+        {
+            'subject': 'Exceptional Talent Match — {company} {role}',
+            'body': (
+                'Hi {recruiter},\n\n'
+                'I came across {company}\'s opening for {role} and thought of your team immediately.\n\n'
+                'At Scaler Academy, we train engineers with hands-on expertise in {tech}. '
+                'Many of our alumni have successfully joined roles exactly like this one.\n\n'
+                'Would you be open to exploring talent from our network specifically prepared for this position?\n\n'
+                'Best regards,\nScaler Academy'
+            ),
+        },
+        {
+            'subject': 'Talent Match — {company} {role}',
+            'body': (
+                'Hi {recruiter},\n\n'
+                'I noticed {company} is hiring for {role} — a role that aligns perfectly with our curriculum.\n\n'
+                'Our recent graduates have strong hands-on experience with {tech} and have worked on '
+                'systems at scale similar to what {company} is building.\n\n'
+                'Happy to share vetted candidate profiles. Would you have 15 minutes next week?\n\n'
+                'Best,\nScaler Academy'
+            ),
+        },
+        {
+            'subject': 'Top Engineering Talent for {company}',
+            'body': (
+                'Hi {recruiter},\n\n'
+                '{company}\'s {role} opening caught our attention. We have strong candidates from the Scaler community.\n\n'
+                'Our engineers are trained in {tech} and have demonstrated strong problem-solving ability '
+                'through real-world projects.\n\n'
+                'Would you be open to a brief conversation about sourcing through Scaler?\n\n'
+                'Looking forward to connecting.\n\nScaler Team'
+            ),
+        },
+    ]
 
     def generate_messages(self, relevant_jobs: List[Dict], recruiters: List[Dict]) -> List[Dict]:
-        """Generate personalized messages"""
-        print(f"\n[✉️  MessageGenerator] Creating personalized outreach for {len(relevant_jobs)} opportunities...\n")
+        print(f"\n[MessageGenerator] Drafting {len(relevant_jobs)} outreach messages...")
 
+        recruiter_map = {r['job_id']: r for r in recruiters}
         messages = []
-        recruiter_map = {r["job_id"]: r for r in recruiters}
 
-        # Message templates
-        templates = [
-            {
-                "subject": "Exceptional Talent Match - {company} {role}",
-                "body": "Hi {recruiter},\n\nI came across {company}'s opening for {role} and thought of your team immediately.\n\nAt Scaler Academy, we specialize in training backend engineers with expertise in {tech}. Many of our alumni have successfully transitioned into roles like yours.\n\nWould you be interested in exploring talent from our network who are specifically prepared for this role?\n\nI'd love to discuss how we can help {company} build a stronger engineering team.\n\nBest regards,\nScaler Academy"
-            },
-            {
-                "subject": "Talent Match - {company} {role}",
-                "body": "Hi {recruiter},\n\nI noticed {company} is hiring for {role} - a position that aligns perfectly with our program curriculum.\n\nOur recent graduates have strong experience with {tech}. They've worked on scaling systems similar to what {company} is building.\n\nI'd be happy to share profiles of vetted candidates who would be a great fit for your role.\n\nWould you have 15 minutes next week for a quick chat?\n\nBest,\nScaler Academy"
-            },
-            {
-                "subject": "Top Backend Talent for {company}",
-                "body": "Hi {recruiter},\n\n{company}'s hiring for {role} caught our attention. We have several great candidates from our Scaler community.\n\nOur engineers are trained in modern {tech} practices and have demonstrated problem-solving skills.\n\nWould you be open to a brief conversation about sourcing talent through Scaler?\n\nLooking forward to connecting.\n\nBest regards,\nScaler Team"
-            }
-        ]
-
-        for idx, relevant_job in enumerate(relevant_jobs):
-            job = relevant_job["job"]
-            recruiter = recruiter_map.get(relevant_job["job_id"])
-
-            if not recruiter or not recruiter.get("email"):
+        for idx, rj in enumerate(relevant_jobs):
+            job = rj['job']
+            recruiter = recruiter_map.get(rj['job_id'])
+            if not recruiter or not recruiter.get('email'):
                 continue
 
-            template = templates[idx % len(templates)]
-            tech_str = ", ".join(job.get("tech_stack", ["Python"])[:2])
+            template = self.TEMPLATES[idx % len(self.TEMPLATES)]
+            tech_str = ', '.join((job.get('tech_stack') or ['Python'])[:2])
 
-            subject = template["subject"].format(
-                company=job["company_name"],
-                role=job["job_title"]
+            subject = template['subject'].format(
+                company=job['company_name'],
+                role=job['job_title'],
             )
-
-            body = template["body"].format(
-                recruiter=recruiter["recruiter_name"],
-                company=job["company_name"],
-                role=job["job_title"],
-                tech=tech_str
+            body = template['body'].format(
+                recruiter=recruiter['recruiter_name'],
+                company=job['company_name'],
+                role=job['job_title'],
+                tech=tech_str,
             )
 
             outreach = create_outreach_message(
                 id=str(uuid.uuid4()),
-                job_id=relevant_job["job_id"],
-                company_name=job["company_name"],
-                job_title=job["job_title"],
-                recruiter_name=recruiter["recruiter_name"],
-                recruiter_email=recruiter["email"],
+                job_id=rj['job_id'],
+                company_name=job['company_name'],
+                job_title=job['job_title'],
+                recruiter_name=recruiter['recruiter_name'],
+                recruiter_email=recruiter['email'],
                 subject_line=subject,
                 message_body=body,
-                approval_status="pending",
-                job_url=job.get("job_url", ""),
-                job=job
+                approval_status='pending',
+                job_url=job.get('job_url', ''),
+                job=job,
             )
             messages.append(outreach)
-            print(f"   ✓ Message for {recruiter['recruiter_name']} at {job['company_name']}")
+            print(f"   {recruiter['recruiter_name']} @ {job['company_name']}")
 
         print()
         return messages

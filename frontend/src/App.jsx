@@ -147,7 +147,7 @@ function App() {
         )}
 
         {view === 'dashboard' && stats && (
-          <Dashboard stats={stats} />
+          <Dashboard stats={stats} messages={messages} />
         )}
       </main>
 
