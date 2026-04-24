@@ -17,17 +17,25 @@ class CareersSalesOrchestrator:
         self.message_generator = MessageGeneratorAgent()
         self.results_cache = {}
 
-    def run_workflow(self, role: str, location: str, num_results: int = 5) -> Dict:
+    def run_workflow(self, role: str, location: str, num_results: int = 5, experience: str = None) -> Dict:
         """
         Execute the complete workflow:
         Job Finding → Relevance Analysis → Recruiter Finding → Message Generation
+
+        Args:
+            role: Job title to search for
+            location: Location to search in
+            num_results: Number of results to return
+            experience: Experience filter (e.g., "1-3", "3-5", "5+")
         """
         try:
             print(f"[Orchestrator] Starting workflow for: {role} in {location}")
+            if experience:
+                print(f"[Orchestrator] Experience filter: {experience} years")
 
             # Step 1: Find jobs
             print("[Step 1] Finding jobs...")
-            jobs = self.job_finder.find_jobs(role, location, num_results)
+            jobs = self.job_finder.find_jobs(role, location, num_results, experience)
             if not jobs:
                 return {
                     "total_jobs_found": 0,
