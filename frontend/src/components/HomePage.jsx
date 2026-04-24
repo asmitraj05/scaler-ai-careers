@@ -17,7 +17,7 @@ const SCALER_COURSES = [
 const JOB_PORTALS = ['LinkedIn', 'Naukri', 'Instahyre', 'Indeed', 'Shine']
 const ALL_PORTALS = 'ALL'
 
-export default function HomePage({ onSubmit, loading }) {
+export default function HomePage({ onSubmit, loading, onNavigateToDashboard }) {
   const [formData, setFormData] = useState({
     role: '',
     experience: '',
@@ -90,9 +90,12 @@ export default function HomePage({ onSubmit, loading }) {
             </div>
           </div>
           <nav className="header-nav">
-            <a href="#outreach-dashboard" className="nav-link">
+            <button
+              className="nav-link"
+              onClick={() => onNavigateToDashboard && onNavigateToDashboard()}
+            >
               Outreach Dashboard
-            </a>
+            </button>
           </nav>
         </div>
       </header>

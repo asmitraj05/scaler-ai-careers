@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import './LoaderPage.css'
 
-export default function LoaderPage({ role, location, portals }) {
+export default function LoaderPage({ role, location, portals, onNavigateToDashboard }) {
   const [progress, setProgress] = useState(0)
   const [currentStage, setCurrentStage] = useState(0)
   const [isCached, setIsCached] = useState(false)
@@ -91,9 +91,12 @@ export default function LoaderPage({ role, location, portals }) {
             <img src="/scaler-logo.png" alt="Scaler Logo" className="loader-header-logo" />
           </div>
           <nav className="loader-header-nav">
-            <a href="#outreach-dashboard" className="loader-nav-link">
+            <button
+              className="loader-nav-link"
+              onClick={() => onNavigateToDashboard && onNavigateToDashboard()}
+            >
               Outreach Dashboard
-            </a>
+            </button>
           </nav>
         </div>
       </header>

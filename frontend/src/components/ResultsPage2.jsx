@@ -321,13 +321,39 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
   }
 
   const handleConnectOnLinkedIn = async () => {
-    // Check if recruiter has a direct LinkedIn profile URL
-    if (job.recruiter && job.recruiter.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
-      window.open(job.recruiter.linkedinUrl, '_blank')
-    } else {
-      // Generate smart search URL
-      const linkedinUrl = await generateLinkedInUrl()
-      window.open(linkedinUrl, '_blank')
+    try {
+      // Log this outreach action to backend
+      const response = await fetch('http://localhost:8000/create-outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_name: job.company,
+          job_role: job.role,
+          recruiter_name: job.recruiter.name,
+          recruiter_email: job.recruiter.role || 'Not specified',
+          linkedin_url: job.recruiter.linkedinUrl
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Outreach logged:', data)
+      }
+
+      // Check if recruiter has a direct LinkedIn profile URL
+      if (job.recruiter && job.recruiter.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
+        window.open(job.recruiter.linkedinUrl, '_blank')
+      } else {
+        // Generate smart search URL
+        const linkedinUrl = await generateLinkedInUrl()
+        window.open(linkedinUrl, '_blank')
+      }
+    } catch (error) {
+      console.error('Error logging outreach:', error)
+      // Still open LinkedIn even if logging fails
+      if (job.recruiter && job.recruiter.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
+        window.open(job.recruiter.linkedinUrl, '_blank')
+      }
     }
   }
 
@@ -483,7 +509,7 @@ const experienceLevels = {
 }
 
 // Main ResultsPage Component
-export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchParams = {} }) {
+export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchParams = {}, onNavigateToDashboard }) {
   const [jobs, setJobs] = useState(initialJobs)
   const [selectedJobId, setSelectedJobId] = useState(initialJobs.length > 0 ? initialJobs[0].id : null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -721,9 +747,12 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
             </button>
           </div>
           <div className="header-right">
-            <a href="#outreach-dashboard" className="nav-link-results">
+            <button
+              className="nav-link-results"
+              onClick={() => onNavigateToDashboard && onNavigateToDashboard()}
+            >
               Outreach Dashboard
-            </a>
+            </button>
             <span className="status-badge">
               {jobs.length} opportunities | {jobs.filter((j) => j.pushed).length} sent
             </span>

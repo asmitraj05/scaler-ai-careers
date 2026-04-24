@@ -148,6 +148,9 @@
   transition: all 0.3s ease;
   cursor: pointer;
   white-space: nowrap;
+  background: none;
+  border: none;
+  font-family: inherit;
 }
 
 .nav-link-results:hover {

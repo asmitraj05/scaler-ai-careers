@@ -2,9 +2,10 @@ import React, { useState } from 'react'
 import HomePage from './components/HomePage'
 import ResultsPage2 from './components/ResultsPage2'
 import LoaderPage from './components/LoaderPage'
+import OutreachDashboard from './components/OutreachDashboard'
 
 function App() {
-  const [view, setView] = useState('input') // input, results, loading
+  const [view, setView] = useState('input') // input, results, loading, outreach-dashboard
   const [loading, setLoading] = useState(false)
   const [jobs, setJobs] = useState([])
   const [error, setError] = useState(null)
@@ -220,7 +221,11 @@ function App() {
   return (
     <div className="app">
       {view === 'input' && (
-        <HomePage onSubmit={handleSubmit} loading={loading} />
+        <HomePage
+          onSubmit={handleSubmit}
+          loading={loading}
+          onNavigateToDashboard={() => setView('outreach-dashboard')}
+        />
       )}
 
       {view === 'loading' && (
@@ -228,6 +233,7 @@ function App() {
           role={searchParams.role}
           location={searchParams.location}
           portals={searchParams.portals}
+          onNavigateToDashboard={() => setView('outreach-dashboard')}
         />
       )}
 
@@ -236,6 +242,13 @@ function App() {
           jobs={jobs}
           onBack={handleBack}
           searchParams={searchParams}
+          onNavigateToDashboard={() => setView('outreach-dashboard')}
+        />
+      )}
+
+      {view === 'outreach-dashboard' && (
+        <OutreachDashboard
+          onNavigateBack={() => setView('input')}
         />
       )}
 

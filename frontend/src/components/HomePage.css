@@ -100,6 +100,9 @@
   border-radius: 6px;
   transition: all 0.3s ease;
   cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
 }
 
 .nav-link:hover {
