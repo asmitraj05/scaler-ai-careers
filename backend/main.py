@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vendor'))
 from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from orchestrator import CareersSalesOrchestrator
+from agents import fetch_linkedin_job_description
 from linkedin_utils import generate_linkedin_search_url
 from linkedin_auth import (
     get_linkedin_auth_url,
@@ -649,6 +650,18 @@ def get_stats():
         "rejected": rejected,
         "approval_rate": approved / len(all_messages) if all_messages else 0
     })
+
+
+@app.route('/job-description', methods=['GET'])
+def get_job_description():
+    """Fetch actual job description from the job platform URL."""
+    job_url = request.args.get('url')
+    if not job_url:
+        return jsonify({"error": "url parameter required"}), 400
+    description = fetch_linkedin_job_description(job_url)
+    if description:
+        return jsonify({"description": description}), 200
+    return jsonify({"description": None}), 200
 
 
 @app.route('/linkedin/search-url', methods=['POST'])

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 from models import (
     create_job,
     create_relevant_job,
@@ -116,9 +116,49 @@ def scrape_remoteok_jobs(role: str, num_results: int) -> List[Dict]:
         return []
 
 
-def fetch_linkedin_job_description(job_url: str) -> str:
-    """Placeholder - job descriptions are now viewed directly on LinkedIn"""
+def _extract_linkedin_job_id(job_url: str) -> Optional[str]:
+    """Resolve numeric job id from common LinkedIn job URLs."""
+    import re
+    if not job_url:
+        return None
+    u = job_url.strip()
+    m = re.search(r'[?&]currentJobId=(\d+)', u)
+    if m:
+        return m.group(1)
+    m = re.search(r'/jobs/view/(\d+)', u, re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r'/jobPosting/(\d+)', u, re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r'-(\d+)(?:/)?$', u.rstrip('/'))
+    if m:
+        return m.group(1)
     return None
+
+
+def fetch_linkedin_job_description(job_url: str) -> str:
+    """Fetch full job description via LinkedIn's guest job API (no login required)."""
+    if not BS4_AVAILABLE or not job_url:
+        return None
+    try:
+        job_id = _extract_linkedin_job_id(job_url)
+        if not job_id:
+            return None
+        api_url = f'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}'
+        resp = requests.get(api_url, headers=HEADERS, timeout=10)
+        if resp.status_code != 200:
+            return None
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        desc_el = soup.find('div', class_='description__text')
+        if not desc_el:
+            return None
+        for el in desc_el.find_all(['button', 'span'], class_=lambda c: c and 'show-more' in c):
+            el.decompose()
+        return desc_el.get_text(separator='\n', strip=True)
+    except Exception as e:
+        print(f"[JobDesc] Error: {e}")
+        return None
 
 
 def scrape_linkedin_jobs(role: str, location: str, num_results: int, experience: str = None) -> List[Dict]:

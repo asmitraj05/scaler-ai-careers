@@ -279,6 +279,31 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
   const [isEditing, setIsEditing] = useState(false)
   const [isPushing, setIsPushing] = useState(false)
   const [showOutreachModal, setShowOutreachModal] = useState(false)
+  const [realDescription, setRealDescription] = useState(null)
+  const [descLoading, setDescLoading] = useState(false)
+
+  const jobPageUrl = job?.jobUrl || job?.job_url || ''
+  const isLinkedInJob =
+    (job?.platform || '').toLowerCase() === 'linkedin' ||
+    /linkedin\.com/i.test(jobPageUrl)
+
+  useEffect(() => {
+    setRealDescription(null)
+    console.log('[JobDesc] effect:', { jobId: job?.id, jobPageUrl, isLinkedInJob, platform: job?.platform })
+    if (!jobPageUrl || !isLinkedInJob) {
+      console.log('[JobDesc] skipped — no URL or not LinkedIn')
+      return
+    }
+    setDescLoading(true)
+    fetch(`http://localhost:8000/job-description?url=${encodeURIComponent(jobPageUrl)}`)
+      .then(r => r.json())
+      .then(data => {
+        console.log('[JobDesc] response:', { hasDescription: !!data.description, len: data.description?.length })
+        setRealDescription(data.description || null)
+      })
+      .catch(err => { console.error('[JobDesc] fetch error:', err) })
+      .finally(() => setDescLoading(false))
+  }, [job?.id, jobPageUrl, isLinkedInJob])
 
   if (!job) {
     return (
@@ -387,7 +412,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
           <button
             className="btn-view-job-header"
             style={{ backgroundColor: platformColors[job.platform] }}
-            onClick={() => window.open(job.jobUrl, '_blank')}
+            onClick={() => jobPageUrl && window.open(jobPageUrl, '_blank')}
           >
             View Job on {job.platform}
           </button>
@@ -408,9 +433,15 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
             </div>
             <button
               className="btn-linkedin-detail"
-              disabled
-              title="Coming soon"
-              style={{ opacity: 0.4, cursor: 'not-allowed' }}
+              onClick={() => {
+                const slug = job.company
+                  .replace(/\s+(Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation)$/i, '')
+                  .trim()
+                  .toLowerCase()
+                  .replace(/\s+/g, '-')
+                  .replace(/[^a-z0-9-]/g, '')
+                window.open(`https://www.linkedin.com/company/${slug}/people/?keywords=HR`, '_blank')
+              }}
             >
               🔗 Connect on LinkedIn
             </button>
@@ -421,35 +452,15 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
         <section className="detail-section">
           <h3>Job Description</h3>
           <div className="description-box">
-            <p>
-              {job.company} is looking for a talented <strong>{job.role}</strong> in {job.location}.
-            </p>
-            <p>
-              This position aligns perfectly with Scaler's specialization in backend engineering.
-              The role requires expertise in modern development practices and distributed systems.
-            </p>
-            <h4>Key Responsibilities:</h4>
-            <ul>
-              <li>Design and implement scalable backend services</li>
-              <li>Collaborate with cross-functional teams</li>
-              <li>Optimize system performance and reliability</li>
-              <li>Conduct code reviews and mentor junior engineers</li>
-            </ul>
-            <h4>Required Skills:</h4>
-            <ul>
-              {job.tech_stack && job.tech_stack.length > 0 ? (
-                job.tech_stack.map((tech, idx) => <li key={idx}>{tech}</li>)
-              ) : (
-                <>
-                  <li>Backend Development</li>
-                  <li>Database Design</li>
-                  <li>System Architecture</li>
-                </>
-              )}
-            </ul>
-            <p>
-              <strong>Posted:</strong> Recently on {job.platform}
-            </p>
+            {descLoading ? (
+              <p style={{ color: '#888' }}>Loading description...</p>
+            ) : realDescription ? (
+              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{realDescription}</pre>
+            ) : (
+              <p style={{ color: '#888' }}>
+                Description not available. <a href={jobPageUrl} target="_blank" rel="noreferrer">View on {job.platform} ↗</a>
+              </p>
+            )}
           </div>
         </section>
 
