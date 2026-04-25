@@ -324,7 +324,24 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
 
   const handleConnectOnLinkedIn = async () => {
     try {
-      // Open LinkedIn search
+      // Create outreach log first
+      const response = await fetch('http://localhost:8000/create-outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_name: job.company,
+          job_role: job.role,
+          recruiter_name: 'Hiring Team',
+          recruiter_email: job.recruiter?.role || 'Talent Acquisition',
+          linkedin_url: job.recruiter?.linkedinUrl || ''
+        })
+      })
+
+      if (!response.ok) {
+        console.error('Failed to create outreach log')
+      }
+
+      // Open LinkedIn in new tab
       if (job.recruiter && job.recruiter.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
         window.open(job.recruiter.linkedinUrl, '_blank')
       } else {
@@ -333,7 +350,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
         window.open(linkedinUrl, '_blank')
       }
 
-      // Show modal for user to confirm and enter actual HR details
+      // Show modal for LinkedIn authentication
       setShowOutreachModal(true)
     } catch (error) {
       console.error('Error opening LinkedIn:', error)
@@ -388,14 +405,14 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
           <div className="recruiter-card">
             <div className="recruiter-avatar">👤</div>
             <div className="recruiter-info">
-              <h4>{job.recruiter.name}</h4>
-              <p className="recruiter-role">{job.recruiter.role}</p>
+              <h4>Hiring Team</h4>
+              <p className="recruiter-role">{job.recruiter.role || 'Talent Acquisition'}</p>
               <p className="recruiter-company">at {job.company}</p>
             </div>
             <button
               className="btn-linkedin-detail"
               onClick={handleConnectOnLinkedIn}
-              title="Find relevant recruiters on LinkedIn"
+              title="Connect with hiring team on LinkedIn"
             >
               🔗 Connect on LinkedIn
             </button>
@@ -511,6 +528,36 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
   const [selectedJobId, setSelectedJobId] = useState(initialJobs.length > 0 ? initialJobs[0].id : null)
   const [currentPage, setCurrentPage] = useState(1)
   const [lastUpdated, setLastUpdated] = useState(null)
+
+  // Handle LinkedIn OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const authSuccess = params.get('auth_success')
+    const userId = params.get('user_id')
+    const userName = params.get('name')
+
+    if (authSuccess === 'true' && userId) {
+      // Store LinkedIn user_id in localStorage for dashboard syncing
+      localStorage.setItem('linkedin_user_id', userId)
+      localStorage.setItem('linkedin_user_name', userName || 'User')
+      console.log('✅ LinkedIn authenticated:', { userId, userName })
+
+      // Associate recent outreach logs with this user
+      fetch('http://localhost:8000/associate-outreach-with-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      })
+        .then(res => res.json())
+        .then(data => {
+          console.log('✅ Associated outreach logs:', data)
+        })
+        .catch(err => console.error('Error associating outreach:', err))
+
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
 
   // Calculate when data was cached
   useEffect(() => {

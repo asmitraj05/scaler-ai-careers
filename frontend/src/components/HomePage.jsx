@@ -28,12 +28,22 @@ export default function HomePage({ onSubmit, loading, onNavigateToDashboard }) {
 
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showPortalDropdown, setShowPortalDropdown] = useState(false)
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false)
+  const [showExpDropdown, setShowExpDropdown] = useState(false)
   const portalWrapperRef = useRef(null)
+  const roleWrapperRef = useRef(null)
+  const expWrapperRef = useRef(null)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (portalWrapperRef.current && !portalWrapperRef.current.contains(event.target)) {
         setShowPortalDropdown(false)
+      }
+      if (roleWrapperRef.current && !roleWrapperRef.current.contains(event.target)) {
+        setShowRoleDropdown(false)
+      }
+      if (expWrapperRef.current && !expWrapperRef.current.contains(event.target)) {
+        setShowExpDropdown(false)
       }
     }
 
@@ -118,36 +128,70 @@ export default function HomePage({ onSubmit, loading, onNavigateToDashboard }) {
               {/* 1. Hiring Role Dropdown */}
               <div className="form-group">
                 <label className="label">Hiring Role</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => handleChange('role', e.target.value)}
-                  disabled={loading}
-                  className="select-input"
-                >
-                  <option value="">Select role...</option>
-                  {SCALER_COURSES.map(course => (
-                    <option key={course} value={course}>
-                      {course}
-                    </option>
-                  ))}
-                </select>
+                <div className="portal-wrapper" ref={roleWrapperRef}>
+                  <button
+                    type="button"
+                    className="portal-select-btn"
+                    onClick={() => { setShowRoleDropdown(!showRoleDropdown); setShowExpDropdown(false); setShowPortalDropdown(false) }}
+                    disabled={loading}
+                  >
+                    <span className="portal-text">{formData.role || 'Select role...'}</span>
+                    <span className="portal-arrow">▼</span>
+                  </button>
+                  {showRoleDropdown && (
+                    <div className="portal-dropdown">
+                      {SCALER_COURSES.map(course => (
+                        <div
+                          key={course}
+                          className={`custom-option ${formData.role === course ? 'selected' : ''}`}
+                          onClick={() => { handleChange('role', course); setShowRoleDropdown(false) }}
+                        >
+                          {course}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 2. Experience Dropdown */}
               <div className="form-group">
                 <label className="label">Experience</label>
-                <select
-                  value={formData.experience}
-                  onChange={(e) => handleChange('experience', e.target.value)}
-                  disabled={loading}
-                  className="select-input"
-                >
-                  <option value="">Any level</option>
-                  <option value="0-1">0–1 years</option>
-                  <option value="1-3">1–3 years</option>
-                  <option value="3-5">3–5 years</option>
-                  <option value="5+">5+ years</option>
-                </select>
+                <div className="portal-wrapper" ref={expWrapperRef}>
+                  <button
+                    type="button"
+                    className="portal-select-btn"
+                    onClick={() => { setShowExpDropdown(!showExpDropdown); setShowRoleDropdown(false); setShowPortalDropdown(false) }}
+                    disabled={loading}
+                  >
+                    <span className="portal-text">
+                      {formData.experience === '' ? 'Any level' :
+                       formData.experience === '0-1' ? '0–1 years' :
+                       formData.experience === '1-3' ? '1–3 years' :
+                       formData.experience === '3-5' ? '3–5 years' : '5+ years'}
+                    </span>
+                    <span className="portal-arrow">▼</span>
+                  </button>
+                  {showExpDropdown && (
+                    <div className="portal-dropdown">
+                      {[
+                        { value: '', label: 'Any level' },
+                        { value: '0-1', label: '0–1 years' },
+                        { value: '1-3', label: '1–3 years' },
+                        { value: '3-5', label: '3–5 years' },
+                        { value: '5+',  label: '5+ years' }
+                      ].map(opt => (
+                        <div
+                          key={opt.value}
+                          className={`custom-option ${formData.experience === opt.value ? 'selected' : ''}`}
+                          onClick={() => { handleChange('experience', opt.value); setShowExpDropdown(false) }}
+                        >
+                          {opt.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 3. Job Portals Multi-Select Dropdown */}
@@ -166,25 +210,25 @@ export default function HomePage({ onSubmit, loading, onNavigateToDashboard }) {
 
                   {showPortalDropdown && (
                     <div className="portal-dropdown">
-                      <label key={ALL_PORTALS} className="portal-checkbox-item portal-all-option">
+                      <label className="portal-checkbox-item portal-all-option">
+                        <span className="portal-label"><strong>{ALL_PORTALS}</strong></span>
                         <input
                           type="checkbox"
                           checked={formData.portals.length === JOB_PORTALS.length}
                           onChange={() => handlePortalToggle(ALL_PORTALS)}
                           disabled={loading}
                         />
-                        <span className="portal-label"><strong>{ALL_PORTALS}</strong></span>
                       </label>
                       <div className="portal-divider"></div>
                       {JOB_PORTALS.map(portal => (
                         <label key={portal} className="portal-checkbox-item">
+                          <span className="portal-label">{portal}</span>
                           <input
                             type="checkbox"
                             checked={formData.portals.includes(portal)}
                             onChange={() => handlePortalToggle(portal)}
                             disabled={loading}
                           />
-                          <span className="portal-label">{portal}</span>
                         </label>
                       ))}
                     </div>

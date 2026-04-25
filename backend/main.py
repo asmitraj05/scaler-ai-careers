@@ -9,10 +9,20 @@ import uuid
 # Add vendor directory to path for dependencies
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vendor'))
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from orchestrator import CareersSalesOrchestrator
 from linkedin_utils import generate_linkedin_search_url
+from linkedin_auth import (
+    get_linkedin_auth_url,
+    exchange_auth_code_for_token,
+    get_linkedin_profile,
+    store_linkedin_auth,
+    get_linkedin_connections,
+    sync_outreach_with_linkedin,
+    get_user_outreach_with_linkedin_status,
+    extract_linkedin_id_from_url
+)
 
 app = Flask(__name__)
 CORS(app)
@@ -66,20 +76,42 @@ def init_database():
         ON cached_jobs(created_at)
     ''')
 
+    # Create user_linkedin_auth table for storing LinkedIn OAuth tokens
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_linkedin_auth (
+            id TEXT PRIMARY KEY,
+            user_id TEXT UNIQUE,
+            linkedin_id TEXT,
+            linkedin_name TEXT,
+            linkedin_email TEXT,
+            linkedin_profile_url TEXT,
+            access_token TEXT,
+            refresh_token TEXT,
+            token_expires_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # Create outreach_logs table for CRM tracking
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS outreach_logs (
             id TEXT PRIMARY KEY,
+            user_id TEXT,
             company_name TEXT NOT NULL,
             job_role TEXT NOT NULL,
             recruiter_name TEXT,
             recruiter_email TEXT,
+            recruiter_linkedin_id TEXT,
             linkedin_profile_url TEXT,
             status TEXT DEFAULT 'REQUEST_SENT',
+            linkedin_connection_status TEXT,
+            last_synced_at TIMESTAMP,
             message_sent BOOLEAN DEFAULT 0,
             message_body TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES user_linkedin_auth(user_id)
         )
     ''')
 
@@ -203,17 +235,21 @@ def create_outreach_log(company_name: str, job_role: str, recruiter_name: str,
         cursor = conn.cursor()
 
         outreach_id = str(uuid.uuid4())
+        # Extract LinkedIn ID from the recruiter's profile URL
+        recruiter_linkedin_id = extract_linkedin_id_from_url(linkedin_url) if linkedin_url else None
 
         cursor.execute('''
             INSERT INTO outreach_logs
-            (id, company_name, job_role, recruiter_name, recruiter_email, linkedin_profile_url, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'REQUEST_SENT')
-        ''', (outreach_id, company_name, job_role, recruiter_name, recruiter_email, linkedin_url))
+            (id, company_name, job_role, recruiter_name, recruiter_email, recruiter_linkedin_id,
+             linkedin_profile_url, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'REQUEST_SENT')
+        ''', (outreach_id, company_name, job_role, recruiter_name, recruiter_email,
+              recruiter_linkedin_id, linkedin_url))
 
         conn.commit()
         conn.close()
 
-        print(f"[OUTREACH] Created log: {company_name} - {job_role}")
+        print(f"[OUTREACH] Created log: {company_name} - {job_role} (LinkedIn ID: {recruiter_linkedin_id})")
         return {
             "id": outreach_id,
             "status": "success",
@@ -621,6 +657,165 @@ def get_stats_endpoint():
 
     except Exception as e:
         print(f"[API] Error getting stats: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ============ LINKEDIN OAUTH ENDPOINTS ============
+
+@app.route('/auth/linkedin/login', methods=['POST'])
+def linkedin_login():
+    """Generate LinkedIn OAuth authorization URL"""
+    try:
+        auth_url = get_linkedin_auth_url()
+        print(f"[AUTH] Generated LinkedIn auth URL")
+        return jsonify({
+            "status": "success",
+            "auth_url": auth_url
+        }), 200
+
+    except Exception as e:
+        print(f"[AUTH] Error generating auth URL: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/auth/linkedin/callback', methods=['GET'])
+def linkedin_callback():
+    """Handle LinkedIn OAuth callback"""
+    try:
+        auth_code = request.args.get('code')
+        state = request.args.get('state')
+        error = request.args.get('error')
+        error_description = request.args.get('error_description')
+
+        if error:
+            print(f"[AUTH] LinkedIn auth error: {error} - {error_description}")
+            return redirect(f'http://localhost:3000?auth_error={error}&error_description={error_description}')
+
+        if not auth_code:
+            print("[AUTH] No authorization code received")
+            return redirect('http://localhost:3000?auth_error=no_code')
+
+        # Exchange code for access token
+        token_data = exchange_auth_code_for_token(auth_code)
+        if not token_data:
+            print("[AUTH] Failed to exchange auth code for token")
+            return redirect('http://localhost:3000?auth_error=token_exchange_failed')
+
+        # Get user's LinkedIn profile
+        access_token = token_data.get('access_token')
+        linkedin_profile = get_linkedin_profile(access_token)
+        if not linkedin_profile:
+            print("[AUTH] Failed to fetch LinkedIn profile")
+            return redirect('http://localhost:3000?auth_error=profile_fetch_failed')
+
+        # Store LinkedIn auth data in database
+        user_id = linkedin_profile.get('id')
+        auth_id = store_linkedin_auth(user_id, linkedin_profile, token_data)
+
+        if not auth_id:
+            print("[AUTH] Failed to store LinkedIn auth")
+            return redirect('http://localhost:3000?auth_error=storage_failed')
+
+        print(f"[AUTH] LinkedIn user {user_id} authenticated successfully")
+        # Redirect back to frontend with user_id
+        return redirect(f'http://localhost:3000?auth_success=true&user_id={user_id}&name={linkedin_profile.get("localizedFirstName", "")}')
+
+    except Exception as e:
+        print(f"[AUTH] Error handling LinkedIn callback: {e}")
+        return redirect(f'http://localhost:3000?auth_error=server_error&error_message={str(e)}')
+
+
+@app.route('/associate-outreach-with-user', methods=['POST'])
+def associate_outreach_with_user():
+    """Associate recent outreach logs with a LinkedIn user after authentication"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+
+        if not user_id:
+            return jsonify({"error": "user_id is required"}), 400
+
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+
+        # Associate recent outreach logs (last 30 minutes) that don't have a user_id yet
+        cursor.execute('''
+            UPDATE outreach_logs
+            SET user_id = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id IS NULL
+            AND created_at > datetime('now', '-30 minutes')
+        ''', (user_id,))
+
+        associated_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+
+        print(f"[ASSOCIATE] Associated {associated_count} outreach logs with user {user_id}")
+        return jsonify({
+            "status": "success",
+            "associated_count": associated_count,
+            "message": f"Associated {associated_count} outreach logs with LinkedIn user"
+        }), 200
+
+    except Exception as e:
+        print(f"[ASSOCIATE] Error associating outreach: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/sync-linkedin-connections', methods=['POST'])
+def sync_connections():
+    """Sync outreach logs with real LinkedIn connection status"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+
+        if not user_id:
+            return jsonify({"error": "user_id is required"}), 400
+
+        # Perform sync
+        success = sync_outreach_with_linkedin(user_id)
+
+        if success:
+            print(f"[SYNC] Successfully synced connections for user {user_id}")
+            return jsonify({
+                "status": "success",
+                "message": f"Synced LinkedIn connections for user {user_id}"
+            }), 200
+        else:
+            print(f"[SYNC] Failed to sync connections for user {user_id}")
+            return jsonify({
+                "status": "error",
+                "error": "Failed to sync connections"
+            }), 500
+
+    except Exception as e:
+        print(f"[SYNC] Error syncing connections: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/outreach-dashboard-with-linkedin', methods=['GET'])
+def get_dashboard_with_linkedin():
+    """Get all outreach logs with real LinkedIn connection status"""
+    try:
+        user_id = request.args.get('user_id')
+
+        if not user_id:
+            return jsonify({"error": "user_id query parameter is required"}), 400
+
+        # Get logs with real LinkedIn status
+        logs = get_user_outreach_with_linkedin_status(user_id)
+
+        # Still get stats for dashboard
+        stats = get_outreach_stats()
+
+        return jsonify({
+            "status": "success",
+            "stats": stats,
+            "logs": logs
+        }), 200
+
+    except Exception as e:
+        print(f"[API] Error getting dashboard with LinkedIn: {e}")
         return jsonify({"error": str(e)}), 500
 
 

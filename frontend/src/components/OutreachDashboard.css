@@ -293,6 +293,15 @@
   font-size: 0.9rem;
 }
 
+.action-readonly {
+  color: #0052cc;
+  font-weight: 500;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* Empty State */
 .empty-state {
   display: flex;

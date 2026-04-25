@@ -31,12 +31,24 @@ export default function OutreachDashboard({ onNavigateBack }) {
     fetchDashboardData()
     // Refresh every 5 seconds for real-time updates
     const interval = setInterval(fetchDashboardData, 5000)
-    return () => clearInterval(interval)
+    // Sync with LinkedIn every 10 seconds
+    const syncInterval = setInterval(syncLinkedInConnections, 10000)
+    return () => {
+      clearInterval(interval)
+      clearInterval(syncInterval)
+    }
   }, [])
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('http://localhost:8000/outreach-dashboard')
+      const userId = localStorage.getItem('linkedin_user_id')
+
+      // Use LinkedIn-synced endpoint if user is authenticated, otherwise use general endpoint
+      const endpoint = userId
+        ? `http://localhost:8000/outreach-dashboard-with-linkedin?user_id=${userId}`
+        : 'http://localhost:8000/outreach-dashboard'
+
+      const response = await fetch(endpoint)
       if (response.ok) {
         const data = await response.json()
         setLogs(data.logs || [])
@@ -49,22 +61,26 @@ export default function OutreachDashboard({ onNavigateBack }) {
     }
   }
 
-  const updateStatus = async (outreachId, newStatus) => {
+  const syncLinkedInConnections = async () => {
+    const userId = localStorage.getItem('linkedin_user_id')
+    if (!userId) {
+      console.warn('No LinkedIn user ID found')
+      return
+    }
+
     try {
-      const response = await fetch('http://localhost:8000/update-outreach-status', {
+      const response = await fetch('http://localhost:8000/sync-linkedin-connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: outreachId,
-          status: newStatus
-        })
+        body: JSON.stringify({ user_id: userId })
       })
 
       if (response.ok) {
+        console.log('LinkedIn connections synced')
         fetchDashboardData()
       }
     } catch (error) {
-      console.error('Error updating status:', error)
+      console.error('Error syncing LinkedIn connections:', error)
     }
   }
 
@@ -209,27 +225,9 @@ export default function OutreachDashboard({ onNavigateBack }) {
                         {formatDate(log.created_at)}
                       </td>
                       <td className="actions-cell">
-                        {log.status === 'REQUEST_SENT' && (
-                          <button
-                            className="action-btn mark-connected"
-                            onClick={() => updateStatus(log.id, 'CONNECTED')}
-                            title="Mark as connected"
-                          >
-                            ✓ Connected
-                          </button>
-                        )}
-                        {log.status === 'CONNECTED' && (
-                          <button
-                            className="action-btn mark-message"
-                            onClick={() => updateStatus(log.id, 'MESSAGE_SENT')}
-                            title="Mark as message sent"
-                          >
-                            ✉️ Message Sent
-                          </button>
-                        )}
-                        {log.status === 'MESSAGE_SENT' && (
-                          <span className="action-completed">✅ Completed</span>
-                        )}
+                        <span className="action-readonly" title="Status synced from LinkedIn">
+                          🔗 Synced from LinkedIn
+                        </span>
                       </td>
                     </tr>
                   ))}

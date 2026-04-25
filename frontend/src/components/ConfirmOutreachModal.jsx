@@ -2,60 +2,42 @@ import React, { useState } from 'react'
 import './ConfirmOutreachModal.css'
 
 export default function ConfirmOutreachModal({ job, onConfirm, onCancel }) {
-  const [hrName, setHrName] = useState('')
-  const [hrLinkedInUrl, setHrLinkedInUrl] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [error, setError] = useState('')
+  const [authSuccess, setAuthSuccess] = useState(false)
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleLinkedInConnect = async () => {
     setError('')
-
-    if (!hrName.trim()) {
-      setError('Please enter the HR/Recruiter name')
-      return
-    }
-
-    if (!hrLinkedInUrl.trim()) {
-      setError('Please enter the LinkedIn profile URL')
-      return
-    }
-
-    // Validate LinkedIn URL format
-    if (!hrLinkedInUrl.includes('linkedin.com') && !hrLinkedInUrl.includes('in/')) {
-      setError('Please enter a valid LinkedIn profile URL')
-      return
-    }
-
-    setIsSubmitting(true)
+    setIsAuthenticating(true)
 
     try {
-      const response = await fetch('http://localhost:8000/create-outreach', {
+      // Get LinkedIn OAuth URL
+      const response = await fetch('http://localhost:8000/auth/linkedin/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: job.company,
-          job_role: job.role,
-          recruiter_name: hrName,
-          recruiter_email: job.recruiter?.role || 'Not specified',
-          linkedin_url: hrLinkedInUrl
-        })
+        headers: { 'Content-Type': 'application/json' }
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Connection logged:', data)
-        setHrName('')
-        setHrLinkedInUrl('')
-        onConfirm(data)
-      } else {
-        setError('Failed to log connection. Please try again.')
+      if (!response.ok) {
+        setError('Failed to start LinkedIn authentication')
+        setIsAuthenticating(false)
+        return
       }
+
+      const data = await response.json()
+      const authUrl = data.auth_url
+
+      if (!authUrl) {
+        setError('Failed to get LinkedIn authentication URL')
+        setIsAuthenticating(false)
+        return
+      }
+
+      // Redirect to LinkedIn OAuth
+      window.location.href = authUrl
     } catch (err) {
       console.error('Error:', err)
-      setError('Error logging connection. Please try again.')
-    } finally {
-      setIsSubmitting(false)
+      setError('Error connecting to LinkedIn. Please try again.')
+      setIsAuthenticating(false)
     }
   }
 
@@ -63,11 +45,11 @@ export default function ConfirmOutreachModal({ job, onConfirm, onCancel }) {
     <div className="modal-overlay">
       <div className="confirm-modal">
         <div className="modal-header">
-          <h2>Confirm Connection Sent ✅</h2>
+          <h2>Connect on LinkedIn ✅</h2>
           <button
             className="modal-close"
             onClick={onCancel}
-            disabled={isSubmitting}
+            disabled={isAuthenticating}
           >
             ✕
           </button>
@@ -80,64 +62,30 @@ export default function ConfirmOutreachModal({ job, onConfirm, onCancel }) {
           </div>
 
           <p className="instruction-text">
-            You just sent a connection request on LinkedIn. Please enter the HR/Recruiter details below to log this connection in your dashboard.
+            To log this connection with real LinkedIn data, authenticate with your LinkedIn account.
+            Your actual LinkedIn connections will be synced to your dashboard automatically.
           </p>
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="hrName">HR/Recruiter Name *</label>
-              <input
-                id="hrName"
-                type="text"
-                placeholder="e.g., John Doe"
-                value={hrName}
-                onChange={(e) => {
-                  setHrName(e.target.value)
-                  setError('')
-                }}
-                disabled={isSubmitting}
-                required
-              />
-              <small>The full name of the person you sent the connection request to</small>
-            </div>
+          {error && <div className="error-message">{error}</div>}
 
-            <div className="form-group">
-              <label htmlFor="linkedInUrl">LinkedIn Profile URL *</label>
-              <input
-                id="linkedInUrl"
-                type="url"
-                placeholder="https://www.linkedin.com/in/johndoe/"
-                value={hrLinkedInUrl}
-                onChange={(e) => {
-                  setHrLinkedInUrl(e.target.value)
-                  setError('')
-                }}
-                disabled={isSubmitting}
-                required
-              />
-              <small>Copy the LinkedIn profile URL from their profile page</small>
-            </div>
-
-            {error && <div className="error-message">{error}</div>}
-
-            <div className="form-actions">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={onCancel}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn-confirm"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? '⏳ Logging...' : '✅ Confirm Connection'}
-              </button>
-            </div>
-          </form>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn-cancel"
+              onClick={onCancel}
+              disabled={isAuthenticating}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-confirm"
+              onClick={handleLinkedInConnect}
+              disabled={isAuthenticating}
+            >
+              {isAuthenticating ? '🔄 Connecting...' : '🔗 Authenticate with LinkedIn'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
