@@ -161,6 +161,70 @@ def fetch_linkedin_job_description(job_url: str) -> str:
         return None
 
 
+def generate_contextual_outreach(
+    company: str,
+    role: str,
+    recruiter_name: str = "Hiring Team",
+    description: str = "",
+    target_words: int = 100,
+) -> str:
+    """Build a ~100-word contextual outreach pitching Scaler's student pool.
+
+    Pulls 2-3 specific signals (tech stack, focus areas) from the job
+    description so each message reads as written for that role.
+    """
+    desc = (description or "").strip()
+    techs = extract_tech_from_text(f"{role} {desc}")[:3]
+
+    text_lower = desc.lower()
+    focus_signals = []
+    focus_map = {
+        'distributed systems': ['distributed', 'high scale', 'high-throughput', 'low latency'],
+        'API design': ['rest api', 'restful', 'graphql', 'api design', 'microservices'],
+        'data pipelines': ['etl', 'data pipeline', 'kafka', 'spark', 'streaming'],
+        'machine learning': ['machine learning', ' ml ', 'model training', 'deep learning', 'llm'],
+        'cloud infrastructure': ['aws', 'gcp', 'azure', 'kubernetes', 'docker'],
+        'frontend systems': ['react', 'next.js', 'frontend', 'ui/ux'],
+        'backend services': ['backend', 'server-side', 'node.js', 'django', 'spring'],
+        'mobile development': ['android', 'ios', 'react native', 'flutter'],
+        'security & compliance': ['security', 'authentication', 'oauth', 'compliance'],
+    }
+    for label, keywords in focus_map.items():
+        if any(kw in text_lower for kw in keywords):
+            focus_signals.append(label)
+        if len(focus_signals) >= 2:
+            break
+
+    tech_phrase = ', '.join(techs) if techs else 'modern stacks'
+    if focus_signals:
+        focus_phrase = ' and '.join(focus_signals)
+        context_line = (
+            f"The role's focus on {focus_phrase} maps directly to project work "
+            f"our learners ship — production systems built with {tech_phrase}."
+        )
+    else:
+        context_line = (
+            f"Many candidates in our current cohort have hands-on {tech_phrase} "
+            f"experience and have shipped production-grade work in similar domains."
+        )
+
+    body = (
+        f"Hi {recruiter_name},\n\n"
+        f"I noticed {company} is hiring for {role} and wanted to reach out from Scaler. "
+        f"{context_line} "
+        f"They've been mentored by senior engineers from companies like Google, Meta, and Razorpay, "
+        f"and are actively interviewing.\n\n"
+        f"Would you be open to a 15-minute chat next week so I can share 3-4 vetted profiles "
+        f"matched specifically to this opening?\n\n"
+        f"Best,\nScaler Talent Team"
+    )
+
+    words = body.split()
+    if len(words) > target_words + 25:
+        body = ' '.join(words[: target_words + 20]).rstrip(',.') + '.'
+    return body
+
+
 def scrape_linkedin_jobs(role: str, location: str, num_results: int, experience: str = None) -> List[Dict]:
     """Scrape real jobs from LinkedIn's public guest API (no login required).
 

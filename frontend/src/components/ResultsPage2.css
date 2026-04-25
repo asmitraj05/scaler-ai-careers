@@ -913,9 +913,10 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 1rem;
-  color: #4a5568;
-  line-height: 1.7;
+  padding: 1.25rem 1.5rem;
+  color: #334155;
+  line-height: 1.65;
+  font-size: 0.9375rem;
 }
 
 .description-box p {
@@ -928,6 +929,55 @@
 
 .description-box strong {
   color: #2d3748;
+}
+
+.desc-muted {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.desc-formatted > *:first-child {
+  margin-top: 0;
+}
+
+.desc-formatted > *:last-child {
+  margin-bottom: 0;
+}
+
+.desc-heading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 1.25rem 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.desc-paragraph {
+  margin: 0 0 0.85rem 0;
+  color: #334155;
+}
+
+.desc-list {
+  margin: 0.25rem 0 1rem 0;
+  padding-left: 1.25rem;
+  list-style: none;
+}
+
+.desc-list li {
+  position: relative;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  color: #334155;
+}
+
+.desc-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.7rem;
+  width: 5px;
+  height: 5px;
+  background: #2563eb;
+  border-radius: 50%;
 }
 
 /* Recruiter Card */
@@ -1018,6 +1068,35 @@
   border-color: #a0aec0;
 }
 
+.btn-copy-message {
+  background: #ffffff;
+  color: #2d3748;
+  border: 1px solid #cbd5e0;
+  padding: 0.5rem 1.1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.18s ease;
+  min-width: 130px;
+}
+
+.btn-copy-message:hover {
+  background: #f7fafc;
+  border-color: #a0aec0;
+}
+
+.btn-copy-message.copied {
+  background: #3B82F6;
+  color: #ffffff;
+  border-color: #3B82F6;
+}
+
+.btn-copy-message.copied:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
 .message-editor {
   width: 100%;
   min-height: 150px;
@@ -1044,6 +1123,13 @@
   border-radius: 8px;
   padding: 1rem;
   line-height: 1.7;
+  cursor: text;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.message-display:hover {
+  border-color: #3B82F6;
+  background: #f5f9ff;
 }
 
 .message-display p {

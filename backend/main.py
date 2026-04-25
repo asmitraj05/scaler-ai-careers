@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vendor'))
 from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from orchestrator import CareersSalesOrchestrator
-from agents import fetch_linkedin_job_description
+from agents import fetch_linkedin_job_description, generate_contextual_outreach
 from linkedin_utils import generate_linkedin_search_url
 from linkedin_auth import (
     get_linkedin_auth_url,
@@ -662,6 +662,23 @@ def get_job_description():
     if description:
         return jsonify({"description": description}), 200
     return jsonify({"description": None}), 200
+
+
+@app.route('/generate-outreach', methods=['POST'])
+def generate_outreach_endpoint():
+    """Generate a contextual ~100-word outreach message from a job description."""
+    data = request.get_json() or {}
+    company = data.get('company', '').strip()
+    role = data.get('role', '').strip()
+    recruiter = (data.get('recruiter_name') or 'Hiring Team').strip()
+    description = data.get('description') or ''
+    if not company or not role:
+        return jsonify({"error": "company and role required"}), 400
+    message = generate_contextual_outreach(
+        company=company, role=role,
+        recruiter_name=recruiter, description=description,
+    )
+    return jsonify({"message": message}), 200
 
 
 @app.route('/linkedin/search-url', methods=['POST'])

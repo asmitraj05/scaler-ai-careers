@@ -14,6 +14,97 @@ const platformColors = {
 
 const ITEMS_PER_PAGE = 10
 
+// Known LinkedIn slugs for companies whose URL doesn't match their name.
+// Add entries here when you find a company whose default slug 404s on LinkedIn.
+const LINKEDIN_SLUG_OVERRIDES = {
+  'swiggy': 'swiggy-in',
+  'zomato': 'zomato',
+  'flipkart': 'flipkart',
+  'paytm': 'paytm',
+  'ola': 'olacabs',
+  'ola cabs': 'olacabs',
+  'phonepe': 'phonepe',
+  'cred': 'cred-club',
+  'meesho': 'meesho',
+  'unacademy': 'unacademy',
+  'byju\'s': 'byjus',
+  'byjus': 'byjus',
+  'razorpay': 'razorpay',
+  'urban company': 'urbancompany',
+  'urbanclap': 'urbancompany',
+  'dream11': 'dream11',
+  'cure.fit': 'cure-fit',
+  'curefit': 'cure-fit',
+  'tata 1mg': '1mgofficial',
+  '1mg': '1mgofficial',
+  'pharmeasy': 'pharmeasy',
+  'nykaa': 'nykaa',
+  'snapdeal': 'snapdeal',
+  'amazon': 'amazon',
+  'microsoft': 'microsoft',
+  'google': 'google',
+  'meta': 'meta',
+  'apple': 'apple',
+  'netflix': 'netflix',
+}
+
+function getLinkedInCompanySlug(company) {
+  if (!company) return ''
+  const cleaned = company
+    .replace(/\s+(Inc\.?|LLC|Ltd\.?|Pvt\.?|Private|Limited|Corp\.?|Corporation|Technologies|Tech|Solutions)$/i, '')
+    .trim()
+    .toLowerCase()
+  if (LINKEDIN_SLUG_OVERRIDES[cleaned]) return LINKEDIN_SLUG_OVERRIDES[cleaned]
+  return cleaned.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+}
+
+// Parse raw LinkedIn description text into structured blocks (headings, lists, paragraphs)
+function FormattedDescription({ text }) {
+  const blocks = []
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+
+  let currentList = null
+  const flushList = () => {
+    if (currentList) {
+      blocks.push({ type: 'list', items: currentList })
+      currentList = null
+    }
+  }
+
+  const isBullet = (l) => /^([·•●▪◦*\-–—]|\d+[.)])\s+/.test(l)
+  const stripBullet = (l) => l.replace(/^([·•●▪◦*\-–—]|\d+[.)])\s+/, '')
+  const isHeading = (l) =>
+    l.length < 80 && l.endsWith(':') && !isBullet(l)
+
+  for (const line of lines) {
+    if (isBullet(line)) {
+      if (!currentList) currentList = []
+      currentList.push(stripBullet(line))
+    } else if (isHeading(line)) {
+      flushList()
+      blocks.push({ type: 'heading', text: line.replace(/:$/, '') })
+    } else {
+      flushList()
+      blocks.push({ type: 'paragraph', text: line })
+    }
+  }
+  flushList()
+
+  return (
+    <div className="desc-formatted">
+      {blocks.map((b, i) => {
+        if (b.type === 'heading') return <h4 key={i} className="desc-heading">{b.text}</h4>
+        if (b.type === 'list') return (
+          <ul key={i} className="desc-list">
+            {b.items.map((it, j) => <li key={j}>{it}</li>)}
+          </ul>
+        )
+        return <p key={i} className="desc-paragraph">{b.text}</p>
+      })}
+    </div>
+  )
+}
+
 // Bulk Action Bar Component
 function BulkActionBar({ selectedCount, onBulkPush }) {
   if (selectedCount === 0) return null
@@ -281,6 +372,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
   const [showOutreachModal, setShowOutreachModal] = useState(false)
   const [realDescription, setRealDescription] = useState(null)
   const [descLoading, setDescLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const jobPageUrl = job?.jobUrl || job?.job_url || ''
   const isLinkedInJob =
@@ -289,19 +381,30 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
 
   useEffect(() => {
     setRealDescription(null)
-    console.log('[JobDesc] effect:', { jobId: job?.id, jobPageUrl, isLinkedInJob, platform: job?.platform })
-    if (!jobPageUrl || !isLinkedInJob) {
-      console.log('[JobDesc] skipped — no URL or not LinkedIn')
-      return
-    }
+    if (!jobPageUrl || !isLinkedInJob) return
     setDescLoading(true)
     fetch(`http://localhost:8000/job-description?url=${encodeURIComponent(jobPageUrl)}`)
       .then(r => r.json())
       .then(data => {
-        console.log('[JobDesc] response:', { hasDescription: !!data.description, len: data.description?.length })
-        setRealDescription(data.description || null)
+        const desc = data.description || null
+        setRealDescription(desc)
+        // Generate contextual outreach using the fetched description
+        return fetch('http://localhost:8000/generate-outreach', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company: job?.company || '',
+            role: job?.role || '',
+            recruiter_name: job?.recruiter?.name || 'Hiring Team',
+            description: desc || '',
+          }),
+        })
       })
-      .catch(err => { console.error('[JobDesc] fetch error:', err) })
+      .then(r => r && r.json())
+      .then(data => {
+        if (data && data.message) setMessage(data.message)
+      })
+      .catch(err => { console.error('[JobDesc] error:', err) })
       .finally(() => setDescLoading(false))
   }, [job?.id, jobPageUrl, isLinkedInJob])
 
@@ -434,12 +537,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
             <button
               className="btn-linkedin-detail"
               onClick={() => {
-                const slug = job.company
-                  .replace(/\s+(Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation)$/i, '')
-                  .trim()
-                  .toLowerCase()
-                  .replace(/\s+/g, '-')
-                  .replace(/[^a-z0-9-]/g, '')
+                const slug = getLinkedInCompanySlug(job.company)
                 window.open(`https://www.linkedin.com/company/${slug}/people/?keywords=HR`, '_blank')
               }}
             >
@@ -453,11 +551,11 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
           <h3>Job Description</h3>
           <div className="description-box">
             {descLoading ? (
-              <p style={{ color: '#888' }}>Loading description...</p>
+              <p className="desc-muted">Loading description...</p>
             ) : realDescription ? (
-              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{realDescription}</pre>
+              <FormattedDescription text={realDescription} />
             ) : (
-              <p style={{ color: '#888' }}>
+              <p className="desc-muted">
                 Description not available. <a href={jobPageUrl} target="_blank" rel="noreferrer">View on {job.platform} ↗</a>
               </p>
             )}
@@ -469,10 +567,15 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
           <div className="message-header">
             <h3>Outreach Message</h3>
             <button
-              className="btn-edit-toggle"
-              onClick={() => setIsEditing(!isEditing)}
+              className={`btn-copy-message ${copied ? 'copied' : ''}`}
+              onClick={() => {
+                navigator.clipboard.writeText(message).then(() => {
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                })
+              }}
             >
-              {isEditing ? '✓ Done Editing' : '✎ Edit Message'}
+              {copied ? 'Copied' : 'Copy Message'}
             </button>
           </div>
 
@@ -481,10 +584,17 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
               className="message-editor"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              onBlur={() => setIsEditing(false)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setIsEditing(false) }}
+              autoFocus
               placeholder="Edit your outreach message here..."
             />
           ) : (
-            <div className="message-display">
+            <div
+              className="message-display"
+              onDoubleClick={() => setIsEditing(true)}
+              title="Double-click to edit"
+            >
               {message.split('\n').map((line, idx) => (
                 <p key={idx}>{line}</p>
               ))}
