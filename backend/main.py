@@ -2,6 +2,7 @@ import sys
 import os
 import sqlite3
 import json
+import hashlib
 from datetime import datetime
 from threading import Thread
 import time
@@ -23,6 +24,8 @@ from linkedin_auth import (
     get_user_outreach_with_linkedin_status,
     extract_linkedin_id_from_url
 )
+import database
+from indeed_fetcher import fetch_indeed_jobs
 
 app = Flask(__name__)
 CORS(app)
@@ -35,6 +38,92 @@ messages_db = {}
 
 # Database configuration
 DB_FILE = os.path.join(os.path.dirname(__file__), 'jobs_cache.db')
+
+def _linkedin_date_to_iso(posted_datetime: str, posted_date: str) -> str:
+    """Convert LinkedIn posted_datetime (ISO) or posted_date ('N days ago') to YYYY-MM-DD."""
+    if posted_datetime:
+        try:
+            raw = posted_datetime.replace('Z', '+00:00')
+            return datetime.fromisoformat(raw).strftime('%Y-%m-%d')
+        except Exception:
+            pass
+    # Fallback: parse "X days ago" / "X weeks ago"
+    if posted_date:
+        try:
+            import re
+            from datetime import timedelta
+            n = int(re.search(r'\d+', posted_date).group())
+            if 'week' in posted_date:
+                n *= 7
+            elif 'month' in posted_date:
+                n *= 30
+            return (datetime.now() - timedelta(days=n)).strftime('%Y-%m-%d')
+        except Exception:
+            pass
+    return datetime.now().strftime('%Y-%m-%d')
+
+
+def save_orchestrator_results(role: str, location: str, results: list):
+    """
+    Persist orchestrator output (message objects with embedded jobs)
+    into the unified jobs table.
+    One DB row per result; raw_data = full message object (frontend-ready).
+    """
+    inserted = updated = 0
+    for item in results:
+        job = item.get('job') or {}
+        job_url = job.get('job_url') or item.get('job_url') or ''
+        if not job_url:
+            continue
+
+        external_id = database.make_external_id(job_url)
+        source      = (job.get('portal_name') or 'LinkedIn').lower()
+
+        date_iso = _linkedin_date_to_iso(
+            job.get('posted_datetime', ''),
+            job.get('posted_date', '')
+        )
+
+        unified = {
+            'external_id':         external_id,
+            'source':              source,
+            'title':               job.get('job_title') or item.get('job_title', ''),
+            'company_name':        job.get('company_name') or item.get('company_name', ''),
+            'location':            job.get('location', ''),
+            'job_url':             job_url,
+            'apply_url':           None,
+            'role_query':          role,
+            'location_query':      location,
+            'date_published':      date_iso,
+            'description':         job.get('description', ''),
+            'is_remote':           False,
+            'job_type':            None,
+            'experience_level':    None,
+            'salary':              None,
+            'company_rating':      None,
+            'tech_stack':          job.get('tech_stack') or [],
+            'relevance_score':     item.get('relevance_score', 0.85),
+            'reason':              item.get('reason', ''),
+            'recruiter_name':      item.get('recruiter_name', ''),
+            'recruiter_email':     item.get('recruiter_email', ''),
+            'recruiter_title':     None,
+            'recruiter_linkedin_url': None,
+            'subject_line':        item.get('subject_line', ''),
+            'message_body':        item.get('message_body', ''),
+            'portal_name':         job.get('portal_name', 'LinkedIn'),
+            'portal_logo':         job.get('portal_logo', ''),
+            'portal_color':        job.get('portal_color', ''),
+            'raw_data':            item,
+        }
+
+        _, action = database.upsert_job(unified)
+        if action == 'inserted':
+            inserted += 1
+        else:
+            updated += 1
+
+    print(f"[DB] Orchestrator results saved — inserted: {inserted}, updated: {updated}")
+
 
 def init_database():
     """Initialize SQLite database for caching"""
@@ -374,37 +463,59 @@ def get_outreach_stats() -> dict:
         return {}
 
 def background_cache_refresh():
-    """Background thread to refresh cache periodically"""
+    """
+    Background thread — runs on startup, refreshes every 4 hours.
+    For each role × location:
+      1. LinkedIn via orchestrator  → persistent DB + legacy cached_jobs
+      2. Indeed via RapidAPI        → persistent DB only
+    """
     major_roles = [
         'Backend Engineer',
         'Frontend Engineer',
         'Full Stack Engineer',
         'Data Science Engineer',
-        'DevOps Engineer'
+        'DevOps Engineer',
+        'Mobile Developer',
+        'Cloud Engineer',
     ]
-
     locations = ['India', 'Bangalore']
 
     while True:
         try:
-            print("[BACKGROUND] Starting cache refresh job...")
+            print("[BACKGROUND] Starting refresh cycle…")
             for role in major_roles:
                 for location in locations:
+                    # ── LinkedIn via orchestrator ──────────────────────────────
                     try:
-                        print(f"[BACKGROUND] Caching {role} in {location}...")
+                        print(f"[BACKGROUND] LinkedIn: {role} / {location}")
                         result = orchestrator.run_workflow(role, location, num_results=40)
                         if result.get('results'):
                             save_jobs_to_cache(role, location, result['results'])
-                        time.sleep(5)
-                    except Exception as e:
-                        print(f"[BACKGROUND] Error caching {role} in {location}: {e}")
+                            save_orchestrator_results(role, location, result['results'])
+                    except Exception as exc:
+                        print(f"[BACKGROUND] LinkedIn error ({role}/{location}): {exc}")
+                    time.sleep(3)
+
+                    # ── Indeed via RapidAPI ────────────────────────────────────
+                    try:
+                        print(f"[BACKGROUND] Indeed: {role} / {location}")
+                        indeed_jobs = fetch_indeed_jobs(role, location, max_rows=50, from_days=7)
+                        ins = upd = 0
+                        for job in indeed_jobs:
+                            _, action = database.upsert_job(job)
+                            if action == 'inserted': ins += 1
+                            else: upd += 1
+                        print(f"[BACKGROUND] Indeed saved — inserted: {ins}, updated: {upd}")
+                    except Exception as exc:
+                        print(f"[BACKGROUND] Indeed error ({role}/{location}): {exc}")
+                    time.sleep(3)
 
             cleanup_old_jobs()
-            print("[BACKGROUND] Cache refresh completed. Sleeping for 4 hours...")
+            print("[BACKGROUND] Cycle complete. Sleeping 4 hours…")
             time.sleep(4 * 60 * 60)
 
-        except Exception as e:
-            print(f"[BACKGROUND] Error in cache refresh: {e}")
+        except Exception as exc:
+            print(f"[BACKGROUND] Unexpected error: {exc}")
             time.sleep(60)
 
 
@@ -415,31 +526,54 @@ def health_check():
 
 @app.route('/workflow/run', methods=['POST'])
 def run_workflow():
-    data = request.get_json()
-    role = data.get('role')
-    location = data.get('location', 'India')  # Default to India for Pan-India search
-    experience = data.get('experience')  # e.g., "1-3", "3-5", "5+"
+    data        = request.get_json()
+    role        = data.get('role')
+    location    = data.get('location', 'India')
+    experience  = data.get('experience')
     num_results = data.get('num_results', 40)
 
     if not role:
         return jsonify({"error": "Missing role"}), 400
 
-    # CHECK CACHE FIRST (< 1 second)
+    # ── 1. Try persistent DB first (jobs fetched in last 12 hours) ─────────────
+    fresh_count = database.count_fresh_jobs(role, location, max_age_hours=12)
+    if fresh_count >= 5:
+        db_jobs = database.get_jobs(role, location, max_age_days=7, limit=num_results)
+        results = [j['raw_data'] for j in db_jobs if j.get('raw_data')]
+        if results:
+            print(f"[API] DB hit — {len(results)} jobs for '{role}' in '{location}'")
+            for msg in results:
+                if isinstance(msg, dict) and msg.get('id'):
+                    messages_db[msg['id']] = msg
+            return jsonify({
+                "results": results,
+                "source": "database",
+                "from_cache": True,
+                "total_jobs_found": len(results),
+                "relevant_jobs": len(results),
+            })
+
+    # ── 2. Legacy SQLite cache (< 7 days) ─────────────────────────────────────
     cached = get_cached_jobs(role, location)
     if cached:
+        print(f"[API] Legacy cache hit for '{role}' in '{location}'")
+        for msg in cached.get('results', []):
+            if isinstance(msg, dict) and msg.get('id'):
+                messages_db[msg['id']] = msg
         return jsonify(cached)
 
-    # IF NO CACHE, SCRAPE FRESH (2-3 minutes)
-    print(f"[API] No cache found. Scraping fresh jobs for {role}...")
+    # ── 3. Fresh scrape via orchestrator ──────────────────────────────────────
+    print(f"[API] No data found — running fresh scrape for '{role}' in '{location}'…")
     result = orchestrator.run_workflow(role, location, num_results, experience)
 
-    # Save fresh results to cache for next time
     if result.get('results'):
+        # Save to both stores
         save_jobs_to_cache(role, location, result['results'])
-
-    # Store messages in memory
-    for msg in result.get('results', []):
-        messages_db[msg['id']] = msg
+        save_orchestrator_results(role, location, result['results'])
+        # Cache in memory
+        for msg in result['results']:
+            if isinstance(msg, dict) and msg.get('id'):
+                messages_db[msg['id']] = msg
 
     return jsonify(result)
 
@@ -820,13 +954,17 @@ def get_dashboard_with_linkedin():
 
 
 if __name__ == '__main__':
-    print("[STARTUP] Flask app starting...")
-    print("[STARTUP] Initializing backend caching system...")
+    print("[STARTUP] Flask app starting…")
+
+    # Legacy tables (outreach_logs, user_linkedin_auth, cached_jobs)
     init_database()
 
-    # Start background cache refresh thread as daemon
+    # Persistent unified jobs table (LinkedIn + Indeed)
+    database.init_jobs_table()
+
+    # Background refresh — LinkedIn + Indeed every 4 hours
     cache_thread = Thread(target=background_cache_refresh, daemon=True)
     cache_thread.start()
-    print("[STARTUP] Background cache refresh thread started")
+    print("[STARTUP] Background refresh thread started")
 
     app.run(debug=True, host='0.0.0.0', port=8000)

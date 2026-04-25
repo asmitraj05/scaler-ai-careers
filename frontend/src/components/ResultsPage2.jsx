@@ -322,39 +322,36 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
     }
   }
 
-  const handleConnectOnLinkedIn = async () => {
-    try {
-      // Create outreach log first
-      const response = await fetch('http://localhost:8000/create-outreach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: job.company,
-          job_role: job.role,
-          recruiter_name: 'Hiring Team',
-          recruiter_email: job.recruiter?.role || 'Talent Acquisition',
-          linkedin_url: job.recruiter?.linkedinUrl || ''
-        })
-      })
-
-      if (!response.ok) {
-        console.error('Failed to create outreach log')
-      }
-
-      // Open LinkedIn in new tab
-      if (job.recruiter && job.recruiter.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
-        window.open(job.recruiter.linkedinUrl, '_blank')
-      } else {
-        // Generate smart search URL
-        const linkedinUrl = await generateLinkedInUrl()
-        window.open(linkedinUrl, '_blank')
-      }
-
-      // Show modal for LinkedIn authentication
-      setShowOutreachModal(true)
-    } catch (error) {
-      console.error('Error opening LinkedIn:', error)
+  const handleConnectOnLinkedIn = () => {
+    // Build URL synchronously — window.open() must be called directly
+    // from a user gesture, never after an await, or browsers block it.
+    let linkedinUrl
+    if (job.recruiter?.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
+      linkedinUrl = job.recruiter.linkedinUrl
+    } else {
+      const keywords = encodeURIComponent('HR Recruiter')
+      const company  = encodeURIComponent(job.company || '')
+      linkedinUrl = `https://www.linkedin.com/search/results/people/?keywords=${keywords}&currentCompany=${company}`
     }
+
+    // Open immediately — synchronous, direct from click
+    window.open(linkedinUrl, '_blank')
+
+    // Show modal
+    setShowOutreachModal(true)
+
+    // Log outreach asynchronously in background (non-blocking)
+    fetch('http://localhost:8000/create-outreach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        company_name:   job.company,
+        job_role:       job.role,
+        recruiter_name: 'Hiring Team',
+        recruiter_email: job.recruiter?.role || 'Talent Acquisition',
+        linkedin_url:   job.recruiter?.linkedinUrl || ''
+      })
+    }).catch(err => console.error('Outreach log failed:', err))
   }
 
   const handleOutreachConfirmed = () => {
@@ -411,8 +408,9 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
             </div>
             <button
               className="btn-linkedin-detail"
-              onClick={handleConnectOnLinkedIn}
-              title="Connect with hiring team on LinkedIn"
+              disabled
+              title="Coming soon"
+              style={{ opacity: 0.4, cursor: 'not-allowed' }}
             >
               🔗 Connect on LinkedIn
             </button>
