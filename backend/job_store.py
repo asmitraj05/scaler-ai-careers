@@ -250,7 +250,7 @@ def normalize_indeed_job(job: dict) -> dict:
 
 # ─────────────────────────── query helpers ─────────────────────────
 
-def get_all_jobs(limit: int = 200) -> list:
+def get_all_jobs(limit: int = 100) -> list:
     """Return the most recent jobs from the DB as plain dicts."""
     conn = get_connection()
     cursor = conn.cursor()
@@ -264,7 +264,7 @@ def get_all_jobs(limit: int = 200) -> list:
     return [dict(r) for r in rows]
 
 
-def get_jobs_by_portal(portal: str, limit: int = 200) -> list:
+def get_jobs_by_portal(portal: str, limit: int = 100) -> list:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""

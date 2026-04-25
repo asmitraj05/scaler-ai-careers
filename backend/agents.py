@@ -10,7 +10,7 @@ Also exposes:
   fetch_indeed_jobs()      – standalone Indeed/JSearch fetcher used by background refresh
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict
 from models import (
     create_job,
     create_relevant_job,
@@ -368,29 +368,6 @@ def fetch_indeed_jobs(role: str, location: str, num_pages: int = 1) -> List[Dict
 
 
 # ──────────────────────────── agents ─────────────────────────────────
-
-class JobFinderAgent:
-
-    def find_jobs(
-        self, role: str, location: str, num_results: int = 5, experience: str = None
-    ) -> List[Dict]:
-        if location.lower() == "india":
-            print(f"\n[JobFinder] Searching: {role} — PAN-INDIA")
-        else:
-            print(f"\n[JobFinder] Searching: {role} in {location}")
-        if experience:
-            print(f"[JobFinder] Experience filter: {experience} years")
-
-        jobs: List[Dict] = []
-
-        # Primary source: LinkedIn (live, India-specific)
-        linkedin_jobs = scrape_linkedin_jobs(role, location, num_results, experience)
-        jobs.extend(linkedin_jobs)
-
-        print(f"[JobFinder] Total: {len(jobs)} jobs\n")
-        return jobs[:num_results]
-
-
 class RelevanceAnalyzerAgent:
 
     REASONS = [
@@ -662,12 +639,12 @@ class MessageGeneratorAgent:
 
             subject = template["subject"].format(
                 company=job["company_name"],
-                role=job["job_title"],
+                role=job["title"],
             )
             body = template["body"].format(
                 recruiter=recruiter["recruiter_name"],
                 company=job["company_name"],
-                role=job["job_title"],
+                role=job["title"],
                 tech=tech_str,
             )
 
@@ -675,7 +652,7 @@ class MessageGeneratorAgent:
                 id=str(uuid.uuid4()),
                 job_id=rj["job_id"],
                 company_name=job["company_name"],
-                job_title=job["job_title"],
+                job_title=job["title"],
                 recruiter_name=recruiter["recruiter_name"],
                 recruiter_email=recruiter["email"],
                 subject_line=subject,

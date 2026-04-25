@@ -281,7 +281,7 @@ def start_background_refresh():
     print(
         f"[STARTUP] {len(BACKGROUND_ROLES)} background threads launched "
         f"(1 per role, staggered by 20 s). "
-        f"Each thread: LinkedIn → 15 s gap → Indeed → 4 h sleep."
+        f"Each thread: LinkedIn → 15 s gap → Indeed → 30 minutes sleep."
     )
 
 
@@ -305,10 +305,10 @@ def list_jobs():
 
     Query params:
       portal  – filter by 'LinkedIn' or 'Indeed' (optional)
-      limit   – max rows (default 100)
+      limit   – max rows (default 400)
     """
     portal = request.args.get("portal")
-    limit  = int(request.args.get("limit", 400))
+    limit  = int(request.args.get("limit", 100))
 
     if portal:
         jobs = get_jobs_by_portal(portal, limit)
@@ -356,7 +356,7 @@ def run_workflow():
     role       = data.get("role")
     location   = data.get("location", "India")
     experience = data.get("experience")
-    num_results = data.get("num_results", 40)
+    num_results = data.get("num_results", 100)
 
     if not role:
         return jsonify({"error": "Missing role"}), 400

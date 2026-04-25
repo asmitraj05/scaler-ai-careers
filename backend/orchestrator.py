@@ -1,23 +1,21 @@
-from typing import List, Dict
+from typing import Dict
 from agents import (
-    JobFinderAgent,
     RelevanceAnalyzerAgent,
     RecruiterFinderAgent,
     MessageGeneratorAgent,
 )
-
+from job_store import get_all_jobs
 
 class CareersSalesOrchestrator:
     """Central controller coordinating all agents"""
 
     def __init__(self):
-        self.job_finder = JobFinderAgent()
         self.relevance_analyzer = RelevanceAnalyzerAgent()
         self.recruiter_finder = RecruiterFinderAgent()
         self.message_generator = MessageGeneratorAgent()
         self.results_cache = {}
 
-    def run_workflow(self, role: str, location: str, num_results: int = 5, experience: str = None) -> Dict:
+    def run_workflow(self, role: str, location: str, num_results: int = 100, experience: str = None) -> Dict:
         """
         Execute the complete workflow:
         Job Finding → Relevance Analysis → Recruiter Finding → Message Generation
@@ -34,8 +32,8 @@ class CareersSalesOrchestrator:
                 print(f"[Orchestrator] Experience filter: {experience} years")
 
             # Step 1: Find jobs
-            print("[Step 1] Finding jobs...")
-            jobs = self.job_finder.find_jobs(role, location, num_results, experience)
+            print("[Step 1] Fetching jobs from DB...")
+            jobs = get_all_jobs(num_results)
             if not jobs:
                 return {
                     "total_jobs_found": 0,
