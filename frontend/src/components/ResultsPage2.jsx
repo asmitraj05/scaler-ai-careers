@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import './ResultsPage2.css'
+import ConfirmOutreachModal from './ConfirmOutreachModal'
 
 // Platform color mapping
 const platformColors = {
@@ -277,6 +278,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
   const [message, setMessage] = useState(job?.message || '')
   const [isEditing, setIsEditing] = useState(false)
   const [isPushing, setIsPushing] = useState(false)
+  const [showOutreachModal, setShowOutreachModal] = useState(false)
 
   if (!job) {
     return (
@@ -322,25 +324,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
 
   const handleConnectOnLinkedIn = async () => {
     try {
-      // Log this outreach action to backend
-      const response = await fetch('http://localhost:8000/create-outreach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: job.company,
-          job_role: job.role,
-          recruiter_name: job.recruiter.name,
-          recruiter_email: job.recruiter.role || 'Not specified',
-          linkedin_url: job.recruiter.linkedinUrl
-        })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('✅ Outreach logged:', data)
-      }
-
-      // Check if recruiter has a direct LinkedIn profile URL
+      // Open LinkedIn search
       if (job.recruiter && job.recruiter.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
         window.open(job.recruiter.linkedinUrl, '_blank')
       } else {
@@ -348,13 +332,17 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
         const linkedinUrl = await generateLinkedInUrl()
         window.open(linkedinUrl, '_blank')
       }
+
+      // Show modal for user to confirm and enter actual HR details
+      setShowOutreachModal(true)
     } catch (error) {
-      console.error('Error logging outreach:', error)
-      // Still open LinkedIn even if logging fails
-      if (job.recruiter && job.recruiter.linkedinUrl && job.recruiter.linkedinUrl.includes('/in/')) {
-        window.open(job.recruiter.linkedinUrl, '_blank')
-      }
+      console.error('Error opening LinkedIn:', error)
     }
+  }
+
+  const handleOutreachConfirmed = () => {
+    setShowOutreachModal(false)
+    console.log('✅ Connection logged with real HR details')
   }
 
   const handlePush = async () => {
@@ -496,6 +484,15 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
           {isPushing ? '⏳ Posting...' : isBulkSelectionActive ? 'Use Bulk Action' : 'Post Job on Scaler Hiring'}
         </button>
       </div>
+
+      {/* Outreach Confirmation Modal */}
+      {showOutreachModal && (
+        <ConfirmOutreachModal
+          job={job}
+          onConfirm={handleOutreachConfirmed}
+          onCancel={() => setShowOutreachModal(false)}
+        />
+      )}
     </div>
   )
 }
