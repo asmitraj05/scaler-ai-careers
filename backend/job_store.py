@@ -202,6 +202,45 @@ def normalize_linkedin_job(job: dict) -> dict:
     }
 
 
+def parse_portal_from_url(url: str) -> str:
+    """
+    Derive a source portal label from a job apply URL.
+
+    Known portals are returned with their canonical capitalization.
+    Any other domain (company career page, ATS, etc.) returns "Other".
+
+    Examples:
+        https://in.linkedin.com/jobs/view/...   → "LinkedIn"
+        https://indeed.com/viewjob?...          → "Indeed"
+        https://shine.com/job-search/...        → "Shine"
+        https://www.instahyre.com/job-...       → "Instahyre"
+        https://www.sarvam.ai/careers/...       → "Other"
+        https://careers.equinix.com/...         → "Other"
+    """
+    if not url:
+        return "Other"
+
+    from urllib.parse import urlparse as _urlparse
+
+    KNOWN_PORTALS = {
+        "linkedin":   "LinkedIn",
+        "indeed":     "Indeed",
+        "shine":      "Shine",
+        "instahyre":  "Instahyre",
+    }
+
+    try:
+        # netloc looks like "in.linkedin.com" or "www.instahyre.com"
+        netloc = _urlparse(url).netloc.lower()
+        for keyword, label in KNOWN_PORTALS.items():
+            if keyword in netloc:
+                return label
+    except Exception:
+        pass
+
+    return "Other"
+
+
 def normalize_indeed_job(job: dict) -> dict:
     """
     Convert a raw JSearch / Indeed API response item into the unified
@@ -220,6 +259,7 @@ def normalize_indeed_job(job: dict) -> dict:
         overwrites the existing row.
     """
     indeed_job_id = job.get("job_id") or str(_uuid.uuid4())
+    apply_link    = job.get("job_apply_link")
     return {
         # Stable PK = Indeed's own job_id
         "id":                   indeed_job_id,
@@ -228,8 +268,8 @@ def normalize_indeed_job(job: dict) -> dict:
         "description":          job.get("job_description"),
         "employment_type":      job.get("job_employment_type"),
         "experience_level":     None,
-        "source_portal":        "Indeed",
-        "apply_link":           job.get("job_apply_link"),
+        "source_portal":        parse_portal_from_url(apply_link),
+        "apply_link":           apply_link,
         "posted_at":            job.get("job_posted_at_datetime_utc"),
 
         "company_name":         job.get("employer_name"),
