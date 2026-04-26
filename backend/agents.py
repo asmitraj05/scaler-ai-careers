@@ -651,41 +651,84 @@ class RecruiterFinderAgent:
 
 class MessageGeneratorAgent:
 
+    # Per-job templates. Each substitutes the company, role, recruiter, the
+    # tech actually mentioned in the JD, and a one-line JD snippet so the
+    # message reads as a response to *this* posting, not a form letter.
     TEMPLATES = [
         {
-            "subject": "Exceptional Talent Match — {company} {role}",
+            "subject": "Scaler talent for {company} — {role}",
             "body": (
                 "Hi {recruiter},\n\n"
-                "I came across {company}'s opening for {role} and thought of your team immediately.\n\n"
-                "At Scaler Academy, we train engineers with hands-on expertise in {tech}. "
-                "Many of our alumni have successfully joined roles exactly like this one.\n\n"
-                "Would you be open to exploring talent from our network specifically prepared for this position?\n\n"
-                "Best regards,\nScaler Academy"
+                "I came across {company}'s opening for {role} and wanted to reach out from Scaler.\n\n"
+                "{jd_hook}From your JD it looks like {tech} are central to the role — that maps "
+                "directly to what our students build during the program. Scaler trains working "
+                "engineers through 1:1 mentorship, project work, and live problem-solving with "
+                "engineers from companies like Google, Meta, Uber and Flipkart, so the candidates "
+                "we send for {role} roles arrive with hands-on experience in exactly this stack.\n\n"
+                "Happy to share 3–5 pre-vetted profiles from our talent pool that fit this role. "
+                "Would a quick 15-minute call next week work?\n\n"
+                "Best regards,\nScaler Talent Partnerships"
             ),
         },
         {
-            "subject": "Talent Match — {company} {role}",
+            "subject": "Pre-vetted {role} candidates for {company}",
             "body": (
                 "Hi {recruiter},\n\n"
-                "I noticed {company} is hiring for {role} — a role that aligns perfectly with our curriculum.\n\n"
-                "Our recent graduates have strong hands-on experience with {tech} and have worked on "
-                "systems at scale similar to what {company} is building.\n\n"
-                "Happy to share vetted candidate profiles. Would you have 15 minutes next week?\n\n"
-                "Best,\nScaler Academy"
+                "Saw {company} is hiring a {role} and thought of our Scaler talent pool.\n\n"
+                "{jd_hook}Our learners ship production work in {tech} as part of the curriculum, "
+                "so when they apply for a role like this they're not learning the stack on the "
+                "job — they've already used it. Scaler's program is project-heavy, mentorship-"
+                "driven, and built around real interview standards, which is why our alumni now "
+                "work at companies including Amazon, Microsoft, Razorpay and CRED.\n\n"
+                "Could I send over a shortlist of {role} candidates from the Scaler community "
+                "this week? Happy to align them to the JD before sharing.\n\n"
+                "Best,\nScaler Talent Partnerships"
             ),
         },
         {
-            "subject": "Top Engineering Talent for {company}",
+            "subject": "{company} × Scaler — talent for {role}",
             "body": (
                 "Hi {recruiter},\n\n"
-                "{company}'s {role} opening caught our attention. We have strong candidates from the Scaler community.\n\n"
-                "Our engineers are trained in {tech} and have demonstrated strong problem-solving ability "
-                "through real-world projects.\n\n"
-                "Would you be open to a brief conversation about sourcing through Scaler?\n\n"
-                "Looking forward to connecting.\n\nScaler Team"
+                "{company}'s {role} posting caught my eye — wanted to introduce Scaler.\n\n"
+                "{jd_hook}The JD calls for {tech}, all of which our students work with through "
+                "industry-grade projects and mentor-led design reviews. Scaler runs an outcome-"
+                "focused program for working engineers, so the talent pool we'd source from for "
+                "this role has both the depth and the production exposure your team needs.\n\n"
+                "If you're open to it, I can share a tailored list of Scaler candidates for the "
+                "{role} role at {company}. Want me to send a few profiles to start?\n\n"
+                "Looking forward,\nScaler Talent Partnerships"
             ),
         },
     ]
+
+    def _job_tech(self, job: Dict) -> str:
+        """Pick the tech keywords to mention. Prefer the structured
+        tech_stack field; fall back to extracting from the description."""
+        tech = job.get("tech_stack") or []
+        if not tech:
+            text = " ".join(filter(None, [job.get("title"), job.get("description")]))
+            tech = extract_tech_from_text(text)
+        if not tech:
+            return "modern backend technologies"
+        if len(tech) == 1:
+            return tech[0]
+        if len(tech) == 2:
+            return f"{tech[0]} and {tech[1]}"
+        return f"{', '.join(tech[:-1])} and {tech[-1]}"
+
+    def _jd_hook(self, job: Dict) -> str:
+        """A short, JD-derived sentence that grounds the message in this
+        specific posting. Empty string when the description is missing."""
+        desc = (job.get("description") or "").strip()
+        if not desc:
+            return ""
+        first_sentence = re.split(r"(?<=[.!?])\s+", desc, maxsplit=1)[0]
+        snippet = first_sentence[:180].rstrip()
+        if not snippet:
+            return ""
+        if len(first_sentence) > 180:
+            snippet += "…"
+        return f"The JD mentions: \"{snippet}\". "
 
     def generate_messages(
         self, relevant_jobs: List[Dict], recruiters: List[Dict]
@@ -710,24 +753,26 @@ class MessageGeneratorAgent:
                 }
 
             template = self.TEMPLATES[idx % len(self.TEMPLATES)]
-            tech_str = ", ".join((job.get("tech_stack") or ["Python"])[:2])
+            tech_str = self._job_tech(job)
+            jd_hook  = self._jd_hook(job)
 
-            subject = template["subject"].format(
-                company=job["company_name"],
-                role=job["title"],
-            )
-            body = template["body"].format(
+            company = job.get("company_name") or "your team"
+            role    = job.get("title") or "this role"
+
+            subject = template["subject"].format(company=company, role=role)
+            body    = template["body"].format(
                 recruiter=recruiter["recruiter_name"],
-                company=job["company_name"],
-                role=job["title"],
+                company=company,
+                role=role,
                 tech=tech_str,
+                jd_hook=jd_hook,
             )
 
             outreach = create_outreach_message(
                 id=str(uuid.uuid4()),
                 job_id=rj["job_id"],
-                company_name=job["company_name"],
-                job_title=job["title"],
+                company_name=company,
+                job_title=role,
                 recruiter_name=recruiter["recruiter_name"],
                 recruiter_email=recruiter["email"],
                 subject_line=subject,
@@ -737,7 +782,7 @@ class MessageGeneratorAgent:
                 job=job,
             )
             messages.append(outreach)
-            print(f"   {recruiter['recruiter_name']} @ {job['company_name']}")
+            print(f"   {recruiter['recruiter_name']} @ {company}")
 
         print()
         return messages

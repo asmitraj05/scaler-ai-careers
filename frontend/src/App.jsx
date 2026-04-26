@@ -9,7 +9,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [jobs, setJobs] = useState([])
   const [error, setError] = useState(null)
-  const [searchParams, setSearchParams] = useState({ role: '', location: '', portals: [] })
+  const [searchParams, setSearchParams] = useState({ role: '', location: '', portals: [], experience: '' })
 
   // Caching has been removed. Wipe any stale jobs_cache_* entries from
   // previous visits so users don't accidentally see them via leftover code.
@@ -28,7 +28,7 @@ function App() {
   const handleSubmit = async (role, location, experience = '', portals = []) => {
     setLoading(true)
     setError(null)
-    setSearchParams({ role, location, portals })
+    setSearchParams({ role, location, portals, experience })
     setView('loading')
 
     try {
@@ -71,35 +71,53 @@ function App() {
       setView('input')
     } else if (data.results && data.results.length > 0) {
       // Transform API results to match ResultsPage2 format
-        // Helper function to parse posted date string
-        const parsePostedDate = (dateStr) => {
-          if (!dateStr) return 0
 
-          const str = dateStr.toLowerCase().trim()
+        // Parse posted_at into both age-in-ms (for filters) and a friendly
+        // display string. Handles two upstream shapes: ISO timestamps from
+        // Indeed (e.g. "2026-04-05T00:00:00.000Z") and relative strings
+        // from the LinkedIn scraper (e.g. "2 weeks ago", "1 day ago").
+        const parsePostedAt = (raw) => {
+          if (!raw) return { ms: null, display: 'Recently' }
 
-          // Extract number and time unit
-          const match = str.match(/(\d+|\w+)\s*(hours?|days?|weeks?|months?|year?)/)
-          if (!match) return 0
+          const str = String(raw).trim()
 
-          let value = match[1]
-          const unit = match[2]
-
-          // Handle "few" or similar text
-          if (isNaN(value)) {
-            value = unit.includes('hour') ? 3 : unit.includes('day') ? 1 : 1
-          } else {
-            value = parseInt(value)
+          // Try ISO / RFC2822 / parseable date first.
+          const parsed = Date.parse(str)
+          if (!isNaN(parsed)) {
+            const ms = Math.max(0, Date.now() - parsed)
+            return { ms, display: relativeLabel(ms) }
           }
 
-          // Convert to milliseconds elapsed
-          let msElapsed = 0
-          if (unit.includes('hour')) msElapsed = value * 60 * 60 * 1000
-          else if (unit.includes('day')) msElapsed = value * 24 * 60 * 60 * 1000
-          else if (unit.includes('week')) msElapsed = value * 7 * 24 * 60 * 60 * 1000
-          else if (unit.includes('month')) msElapsed = value * 30 * 24 * 60 * 60 * 1000
-          else if (unit.includes('year')) msElapsed = value * 365 * 24 * 60 * 60 * 1000
+          // Fall back to "<n> <unit> ago" relative strings.
+          const match = str.toLowerCase().match(/(\d+|a|an|few)\s*(hour|day|week|month|year)s?/)
+          if (!match) return { ms: null, display: str }
 
-          return msElapsed
+          let n = match[1]
+          if (n === 'a' || n === 'an') n = 1
+          else if (n === 'few') n = 3
+          else n = parseInt(n, 10)
+
+          const unit = match[2]
+          const HOUR = 60 * 60 * 1000
+          const DAY  = 24 * HOUR
+          const factor = unit === 'hour' ? HOUR
+            : unit === 'day'   ? DAY
+            : unit === 'week'  ? 7 * DAY
+            : unit === 'month' ? 30 * DAY
+            : 365 * DAY
+          const ms = n * factor
+          return { ms, display: relativeLabel(ms) }
+        }
+
+        const relativeLabel = (ms) => {
+          const HOUR = 60 * 60 * 1000
+          const DAY  = 24 * HOUR
+          if (ms < HOUR)        return 'Just now'
+          if (ms < DAY)         return `${Math.floor(ms / HOUR)}h ago`
+          if (ms < 7 * DAY)     return `${Math.floor(ms / DAY)}d ago`
+          if (ms < 30 * DAY)    return `${Math.floor(ms / (7 * DAY))}w ago`
+          if (ms < 365 * DAY)   return `${Math.floor(ms / (30 * DAY))}mo ago`
+          return `${Math.floor(ms / (365 * DAY))}y ago`
         }
 
         // Helper function to parse experience
@@ -114,11 +132,13 @@ function App() {
         }
 
         const transformedJobs = data.results.map((result, idx) => {
-          // Get raw posted date string from LinkedIn (as is)
-          const postedDateDisplay = result.job['posted_date'] || result.posted_date || 'Recently'
-
-          // Parse posted date for filtering (milliseconds elapsed)
-          const postedDateMs = parsePostedDate(postedDateDisplay)
+          // Prefer the canonical posted_at (ISO from Indeed; relative string
+          // from LinkedIn). Fall back to legacy posted_date fields.
+          const rawPosted = result.job['posted_at']
+            || result.job['posted_date']
+            || result.posted_date
+            || null
+          const { ms: postedDateMs, display: postedDateDisplay } = parsePostedAt(rawPosted)
 
           // Get and parse experience
           const experienceStr = result.job['experience'] || result.experience_required || result.job['experience_required'] || ''

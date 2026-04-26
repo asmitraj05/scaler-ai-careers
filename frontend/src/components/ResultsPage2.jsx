@@ -190,7 +190,10 @@ function FilterBar({ filters, onToggleFilter, onSelectAll, isAllSelected, select
                 className={`filter-button ${filters.postedTime === time ? 'active' : ''}`}
                 onClick={() => onToggleFilter('postedTime', time)}
               >
-                {time === '24h' ? 'Last 24h' : time === '3d' ? 'Last 3 days' : time === '7d' ? 'Last 7 days' : 'Anytime'}
+                {time === '24h' ? 'Last 24h'
+                  : time === '3d' ? 'Last 3 days'
+                  : time === '7d' ? 'Last 7 days'
+                  : 'Anytime'}
               </button>
             ))}
           </div>
@@ -200,15 +203,26 @@ function FilterBar({ filters, onToggleFilter, onSelectAll, isAllSelected, select
         <div className="filter-group">
           <span className="filter-label">Experience:</span>
           <div className="filter-buttons">
-            {Object.entries(experienceLevels).map(([key, label]) => (
-              <button
-                key={key}
-                className={`filter-button ${filters.experience === key ? 'active' : ''}`}
-                onClick={() => onToggleFilter('experience', key)}
-              >
-                {label}
-              </button>
-            ))}
+            {Object.entries(experienceLevels).map(([key, label]) => {
+              // Only "Any level" and the level chosen on the home screen
+              // are clickable. Other levels render as a greyed-out hint
+              // of what was originally requested.
+              const isAny = key === ''
+              const isOriginal = key === (searchParams.experience || '')
+              const isDisabled = !isAny && !isOriginal
+              return (
+                <button
+                  key={key || 'any'}
+                  type="button"
+                  disabled={isDisabled}
+                  className={`filter-button ${filters.experience === key ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+                  style={isDisabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                  onClick={() => !isDisabled && onToggleFilter('experience', key)}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -630,12 +644,15 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
   )
 }
 
-// Experience level labels
+// Experience level labels. '' is the "Any level" option used on the
+// results page; the dropdown buckets below it are only enabled when they
+// match what the user picked on the home screen.
 const experienceLevels = {
+  '':    'Any level',
   '0-1': '0-1 years',
   '1-3': '1-3 years',
   '3-5': '3-5 years',
-  '5+': '5+ years'
+  '5+':  '5+ years'
 }
 
 // Main ResultsPage Component
@@ -699,7 +716,10 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
       }
 
       if (filters.postedTime && filters.postedTime !== 'anytime') {
-        const postedMs = job.postedDateMs || 0
+        const postedMs = job.postedDateMs
+        // Jobs with unknown post time are excluded from narrow buckets;
+        // they only appear under "Anytime".
+        if (postedMs == null) return false
         let maxMs = 0
         if (filters.postedTime === '24h') maxMs = 24 * 60 * 60 * 1000
         else if (filters.postedTime === '3d') maxMs = 3 * 24 * 60 * 60 * 1000
@@ -707,9 +727,8 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
         if (maxMs > 0 && postedMs > maxMs) return false
       }
 
-      if (filters.experience && filters.experience !== '') {
-        if (job.experience !== filters.experience) return false
-      }
+      // Experience is intentionally NOT used as a job filter — picking a
+      // level shows all jobs matching the other filters.
 
       if (filters.location && filters.location.trim() !== '') {
         const jobLocation = (job.location || '').toLowerCase()
@@ -771,7 +790,10 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
 
       // Posted time filter - using parsed milliseconds
       if (filters.postedTime && filters.postedTime !== 'anytime') {
-        const postedMs = job.postedDateMs || 0
+        const postedMs = job.postedDateMs
+        // Jobs with unknown post time are excluded from narrow buckets;
+        // they only appear under "Anytime".
+        if (postedMs == null) return false
         let maxMs = 0
 
         if (filters.postedTime === '24h') maxMs = 24 * 60 * 60 * 1000
@@ -782,9 +804,8 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
       }
 
       // Experience filter
-      if (filters.experience && filters.experience !== '') {
-        if (job.experience !== filters.experience) return false
-      }
+      // Experience is intentionally NOT used as a job filter — picking a
+      // level shows all jobs matching the other filters.
 
       // Location filter
       if (filters.location && filters.location.trim() !== '') {
@@ -938,6 +959,7 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
 
             {/* Right Panel */}
             <JobDetailPanel
+              key={selectedJob.id}
               job={selectedJob}
               onBack={() => setSelectedJobId(null)}
               onPush={handlePushJob}
