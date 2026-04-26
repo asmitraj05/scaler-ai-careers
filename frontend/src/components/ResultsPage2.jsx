@@ -957,15 +957,22 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
             {/* Divider */}
             <div className="pane-divider" />
 
-            {/* Right Panel */}
-            <JobDetailPanel
-              key={selectedJob.id}
-              job={selectedJob}
-              onBack={() => setSelectedJobId(null)}
-              onPush={handlePushJob}
-              onSkip={handleSkipJob}
-              isBulkSelectionActive={selectedJobs.size > 0}
-            />
+            {/* Right Panel — fall back to the first visible job when the
+                auto-select effect hasn't caught up to a filter change yet. */}
+            {(() => {
+              const panelJob = selectedJob || filteredJobs[0]
+              if (!panelJob) return null
+              return (
+                <JobDetailPanel
+                  key={panelJob.id}
+                  job={panelJob}
+                  onBack={() => setSelectedJobId(null)}
+                  onPush={handlePushJob}
+                  onSkip={handleSkipJob}
+                  isBulkSelectionActive={selectedJobs.size > 0}
+                />
+              )
+            })()}
           </div>
         )}
       </main>
