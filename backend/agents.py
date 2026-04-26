@@ -44,7 +44,7 @@ HEADERS = {
 }
 
 # JSearch / RapidAPI credentials
-JSEARCH_API_KEY  = "9efa73397emshfa37381af46489bp1bd04ajsn310682b4b025"
+JSEARCH_API_KEY  = "2ba6031a77mshb0c968e469ddd2dp12053ejsn4800da3b25b2"
 JSEARCH_API_HOST = "jsearch.p.rapidapi.com"
 JSEARCH_BASE_URL = "https://jsearch.p.rapidapi.com/search"
 
