@@ -1,10 +1,10 @@
-from typing import Dict
+from typing import Dict, List, Optional
 from agents import (
     RelevanceAnalyzerAgent,
     RecruiterFinderAgent,
     MessageGeneratorAgent,
 )
-from job_store import get_all_jobs
+from job_store import query_jobs
 
 class CareersSalesOrchestrator:
     """Central controller coordinating all agents"""
@@ -15,25 +15,37 @@ class CareersSalesOrchestrator:
         self.message_generator = MessageGeneratorAgent()
         self.results_cache = {}
 
-    def run_workflow(self, role: str, location: str, num_results: int = 100, experience: str = None) -> Dict:
+    def run_workflow(
+        self,
+        role: str,
+        location: str,
+        num_results: int = 100,
+        experience: Optional[str] = None,
+        portals: Optional[List[str]] = None,
+    ) -> Dict:
         """
         Execute the complete workflow:
         Job Finding → Relevance Analysis → Recruiter Finding → Message Generation
-
-        Args:
-            role: Job title to search for
-            location: Location to search in
-            num_results: Number of results to return
-            experience: Experience filter (e.g., "1-3", "3-5", "5+")
         """
         try:
             print(f"[Orchestrator] Starting workflow for: {role} in {location}")
             if experience:
-                print(f"[Orchestrator] Experience filter: {experience} years")
+                print(f"[Orchestrator] Experience filter: {experience}")
+            if portals:
+                print(f"[Orchestrator] Portal filter: {portals}")
 
-            # Step 1: Find jobs
-            print("[Step 1] Fetching jobs from DB...")
-            jobs = get_all_jobs(num_results)
+            # Step 1: Pull filtered jobs from DB. Experience is intentionally
+            # NOT used as a SQL filter — most rows have no experience signal,
+            # so any bucket would hide otherwise-matching jobs. We log the
+            # selected level for visibility but show all role/portal matches.
+            print("[Step 1] Querying DB with filters...")
+            jobs = query_jobs(
+                role=role,
+                portals=portals,
+                location=location if location and location.lower() != "india" else None,
+                experience=None,
+                limit=num_results,
+            )
             if not jobs:
                 return {
                     "total_jobs_found": 0,
@@ -45,7 +57,7 @@ class CareersSalesOrchestrator:
                 }
             print(f"[Step 1] Found {len(jobs)} jobs")
 
-            # Step 2: Analyze relevance
+            # Step 2: Score relevance
             print("[Step 2] Analyzing relevance...")
             relevant_jobs = self.relevance_analyzer.analyze_relevance(jobs)
             if not relevant_jobs:
@@ -59,26 +71,22 @@ class CareersSalesOrchestrator:
                 }
             print(f"[Step 2] {len(relevant_jobs)} jobs are relevant")
 
-            # Step 3: Find recruiters
+            # Step 3: Find recruiters (every job gets one — fallback to "Hiring Team")
             print("[Step 3] Finding recruiters...")
             recruiters = self.recruiter_finder.find_recruiters(relevant_jobs)
             recruiters_with_email = [r for r in recruiters if r.get("email")]
-            print(f"[Step 3] Found {len(recruiters_with_email)} recruiters")
+            print(f"[Step 3] Resolved {len(recruiters_with_email)} recruiter contacts")
 
-            # Filter relevant jobs to only those with recruiter info
-            relevant_jobs_with_recruiter = [
-                rj for rj in relevant_jobs if any(r["job_id"] == rj["job_id"] for r in recruiters_with_email)
-            ]
-
-            # Step 4: Generate messages
+            # Step 4: Generate one message per relevant job. We pass ALL relevant
+            # jobs through — the message generator now substitutes a placeholder
+            # recruiter when one is missing, so no job is silently dropped here.
             print("[Step 4] Generating messages...")
             messages = self.message_generator.generate_messages(
-                relevant_jobs_with_recruiter, recruiters_with_email
+                relevant_jobs, recruiters
             )
             print(f"[Step 4] Generated {len(messages)} messages")
 
-            # Store results in cache
-            cache_key = role + "_" + location
+            cache_key = f"{role}_{location}_{experience or ''}_{','.join(portals or [])}"
             self.results_cache[cache_key] = messages
 
             return {

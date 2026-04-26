@@ -290,18 +290,139 @@ def normalize_indeed_job(job: dict) -> dict:
 
 # ─────────────────────────── query helpers ─────────────────────────
 
-def get_all_jobs(limit: int = 100) -> list:
-    """Return the most recent jobs from the DB as plain dicts."""
+# Map each dropdown role → keyword list used to OR-LIKE against the title.
+# Posters phrase the same role many ways ("Full Stack Developer (Python)",
+# "SDE - Backend", "Android SDE"), so a single substring is too narrow.
+_ROLE_KEYWORDS = {
+    "backend":         ["backend", "back-end", "back end", "server side", "api developer"],
+    "frontend":        ["frontend", "front-end", "front end", "ui developer", "ui/ux developer",
+                        "react developer", "angular developer"],
+    "full stack":      ["full stack", "fullstack", "full-stack"],
+    "data science":    ["data scien", "data engineer", "data analyst", "analytics engineer"],
+    "devops":          ["devops", "sre", "site reliability", "platform engineer",
+                        "infrastructure engineer"],
+    "android":         ["android"],
+    "ios":             ["ios developer", "ios engineer", "swift developer"],
+    "system design":   ["system design", "architect", "principal engineer"],
+    "machine learning": ["machine learning", "ml engineer", "mlops", "deep learning",
+                         "ai engineer"],
+    "cloud":           ["cloud engineer", "aws engineer", "gcp engineer",
+                        "azure engineer", "cloud architect"],
+}
+
+
+def _resolve_role_keywords(role: str) -> list:
+    """
+    Pick the keyword list that best matches a free-form role string from
+    the dropdown (e.g. "Full Stack Engineer", "Mobile Developer (Android)").
+    Falls back to the raw role string so unknown values still filter.
+    """
+    if not role:
+        return []
+    r = role.lower()
+    for trigger, keywords in _ROLE_KEYWORDS.items():
+        if trigger in r:
+            return keywords
+    return [r]
+
+
+# Experience-bucket → match patterns. Used for best-effort matching against
+# title/description text since most rows have a NULL experience_level column.
+_EXPERIENCE_PATTERNS = {
+    "0-1":  ["0-1", "0 to 1", "fresher", "entry level", "entry-level", "graduate"],
+    "1-3":  ["1-3", "1 to 3", "1+ year", "2+ year", "junior", "associate"],
+    "3-5":  ["3-5", "3 to 5", "3+ year", "4+ year", "mid level", "mid-level"],
+    "5+":   ["5+", "5 to ", "6+ year", "7+ year", "8+ year", "senior", "lead",
+             "principal", "staff", "architect"],
+}
+
+
+def query_jobs(
+    role: str = None,
+    portals: list = None,
+    location: str = None,
+    experience: str = None,
+    limit: int = 100,
+) -> list:
+    """
+    Filtered query over the jobs table. All filters are optional and
+    AND-combined. Returns most recent matching rows as plain dicts.
+
+    role        – free-form role from the dropdown. Resolved to a keyword
+                  list via _ROLE_KEYWORDS so e.g. "Full Stack Engineer"
+                  matches "Full Stack Developer (Python)".
+    portals     – list of source_portal values (e.g. ["LinkedIn","Indeed"])
+    location    – substring match against full_address / city / state
+    experience  – one of "0-1" / "1-3" / "3-5" / "5+"; matched against
+                  title + description text. Rows whose text contains *no*
+                  experience hint at all are kept (we only drop rows that
+                  clearly belong to a different bucket).
+    """
+    where = []
+    params: list = []
+
+    if role:
+        keywords = _resolve_role_keywords(role)
+        if keywords:
+            clause = " OR ".join(["LOWER(title) LIKE ?"] * len(keywords))
+            where.append(f"({clause})")
+            params.extend([f"%{kw}%" for kw in keywords])
+
+    if portals:
+        placeholders = ",".join(["?"] * len(portals))
+        where.append(f"source_portal IN ({placeholders})")
+        params.extend(portals)
+
+    if location:
+        loc = f"%{location.lower()}%"
+        where.append(
+            "(LOWER(IFNULL(full_address,'')) LIKE ?"
+            " OR LOWER(IFNULL(city,'')) LIKE ?"
+            " OR LOWER(IFNULL(state,'')) LIKE ?)"
+        )
+        params.extend([loc, loc, loc])
+
+    if experience and experience in _EXPERIENCE_PATTERNS:
+        # Drop rows whose text clearly belongs to a *different* bucket.
+        # Rows with no experience signal at all are kept (best-effort).
+        wanted   = _EXPERIENCE_PATTERNS[experience]
+        unwanted = [
+            kw
+            for bucket, kws in _EXPERIENCE_PATTERNS.items()
+            if bucket != experience
+            for kw in kws
+        ]
+
+        wanted_clause = " OR ".join(
+            ["LOWER(IFNULL(title,'') || ' ' || IFNULL(description,'')) LIKE ?"]
+            * len(wanted)
+        )
+        unwanted_clause = " OR ".join(
+            ["LOWER(IFNULL(title,'') || ' ' || IFNULL(description,'')) LIKE ?"]
+            * len(unwanted)
+        )
+
+        where.append(f"(({wanted_clause}) OR NOT ({unwanted_clause}))")
+        params.extend([f"%{w}%" for w in wanted])
+        params.extend([f"%{u}%" for u in unwanted])
+
+    sql = "SELECT * FROM jobs"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT * FROM jobs
-        ORDER BY created_at DESC
-        LIMIT ?
-    """, (limit,))
+    cursor.execute(sql, params)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_all_jobs(limit: int = 100) -> list:
+    """Return the most recent jobs from the DB as plain dicts."""
+    return query_jobs(limit=limit)
 
 
 def get_jobs_by_portal(portal: str, limit: int = 100) -> list:

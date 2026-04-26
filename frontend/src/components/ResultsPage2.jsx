@@ -216,15 +216,20 @@ function FilterBar({ filters, onToggleFilter, onSelectAll, isAllSelected, select
         <div className="filter-group">
           <span className="filter-label">Platform:</span>
           <div className="filter-buttons">
-            {['Others', 'LinkedIn', 'Naukri', 'Instahyre'].map(platform => (
-              <button
-                key={platform}
-                className={`filter-button ${filters.platforms.includes(platform) ? 'active' : ''}`}
-                onClick={() => onToggleFilter('platform', platform)}
-              >
-                {platform}
-              </button>
-            ))}
+            {['All', 'LinkedIn', 'Naukri', 'Instahyre', 'Indeed', 'Shine', 'Other'].map(platform => {
+              const isActive = platform === 'All'
+                ? filters.platforms.length === 0
+                : filters.platforms.includes(platform)
+              return (
+                <button
+                  key={platform}
+                  className={`filter-button ${isActive ? 'active' : ''}`}
+                  onClick={() => onToggleFilter('platform', platform)}
+                >
+                  {platform}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -638,7 +643,6 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
   const [jobs, setJobs] = useState(initialJobs)
   const [selectedJobId, setSelectedJobId] = useState(initialJobs.length > 0 ? initialJobs[0].id : null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [lastUpdated, setLastUpdated] = useState(null)
 
   // Handle LinkedIn OAuth callback
   useEffect(() => {
@@ -669,40 +673,6 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }, [])
-
-  // Calculate when data was cached
-  useEffect(() => {
-    const cacheKey = `jobs_cache_${searchParams.role}_${searchParams.location}_${(searchParams.portals || []).join('_')}`
-    try {
-      const cached = localStorage.getItem(cacheKey)
-      if (cached) {
-        const { timestamp } = JSON.parse(cached)
-        const ageMinutes = Math.round((Date.now() - timestamp) / 1000 / 60)
-        setLastUpdated(ageMinutes)
-      }
-    } catch (e) {
-      console.error('Error reading cache timestamp:', e)
-    }
-  }, [searchParams])
-
-  // Update timestamp every 60 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const cacheKey = `jobs_cache_${searchParams.role}_${searchParams.location}_${(searchParams.portals || []).join('_')}`
-      try {
-        const cached = localStorage.getItem(cacheKey)
-        if (cached) {
-          const { timestamp } = JSON.parse(cached)
-          const ageMinutes = Math.round((Date.now() - timestamp) / 1000 / 60)
-          setLastUpdated(ageMinutes)
-        }
-      } catch (e) {
-        console.error('Error reading cache timestamp:', e)
-      }
-    }, 60000) // Update every 60 seconds
-
-    return () => clearInterval(interval)
-  }, [searchParams])
 
   // Filter and Selection State
   const [selectedJobs, setSelectedJobs] = useState(new Set())
@@ -873,6 +843,10 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
       if (filterType === 'postedTime') {
         return { ...prev, postedTime: prev.postedTime === value ? null : value }
       } else if (filterType === 'platform') {
+        if (value === 'All') {
+          // "All" clears the platform filter so every portal passes.
+          return { ...prev, platforms: [] }
+        }
         const platforms = prev.platforms.includes(value)
           ? prev.platforms.filter(p => p !== value)
           : [...prev.platforms, value]

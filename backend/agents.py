@@ -20,6 +20,7 @@ from models import (
 import uuid
 import time
 import json
+import os
 import re
 import requests
 from job_store import upsert_job, normalize_linkedin_job, normalize_indeed_job
@@ -597,13 +598,23 @@ class RecruiterFinderAgent:
     def find_recruiters(self, relevant_jobs: List[Dict]) -> List[Dict]:
         print(f"\n[RecruiterFinder] Finding recruiters for {len(relevant_jobs)} jobs...")
 
+        # The LinkedIn HTML scrape is unauthenticated and rate-limited; once
+        # blocked it returns 999/hangs and slows the whole request to a crawl
+        # (and used to cap responses at ~15 jobs). Off by default — opt in
+        # with ENABLE_LINKEDIN_RECRUITER_SCRAPE=1 if you have a working IP/UA.
+        use_linkedin = os.environ.get(
+            "ENABLE_LINKEDIN_RECRUITER_SCRAPE", ""
+        ).strip().lower() in ("1", "true", "yes")
+
         recruiters = []
         for rj in relevant_jobs:
-            company = rj["job"]["company_name"]
+            company = rj["job"]["company_name"] or "Unknown"
             key     = company.lower().strip()
 
-            print(f"   Searching LinkedIn for {company}...")
-            linkedin_result = find_recruiter_from_linkedin(company)
+            linkedin_result = None
+            if use_linkedin:
+                print(f"   Searching LinkedIn for {company}...")
+                linkedin_result = find_recruiter_from_linkedin(company)
 
             if linkedin_result:
                 name, title, linkedin_url, confidence = linkedin_result
@@ -687,8 +698,16 @@ class MessageGeneratorAgent:
         for idx, rj in enumerate(relevant_jobs):
             job       = rj["job"]
             recruiter = recruiter_map.get(rj["job_id"])
+
+            # Don't drop the job if recruiter discovery missed it — fall back
+            # to a generic "Hiring Team" contact so every relevant job shows up.
             if not recruiter or not recruiter.get("email"):
-                continue
+                company   = job.get("company_name") or "Unknown"
+                slug      = company.lower().replace(' ', '')
+                recruiter = {
+                    "recruiter_name": "Hiring Team",
+                    "email": f"hiring.team@{slug}.com",
+                }
 
             template = self.TEMPLATES[idx % len(self.TEMPLATES)]
             tech_str = ", ".join((job.get("tech_stack") or ["Python"])[:2])

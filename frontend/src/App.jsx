@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import HomePage from './components/HomePage'
 import ResultsPage2 from './components/ResultsPage2'
 import LoaderPage from './components/LoaderPage'
@@ -11,39 +11,19 @@ function App() {
   const [error, setError] = useState(null)
   const [searchParams, setSearchParams] = useState({ role: '', location: '', portals: [] })
 
+  // Caching has been removed. Wipe any stale jobs_cache_* entries from
+  // previous visits so users don't accidentally see them via leftover code.
+  useEffect(() => {
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('jobs_cache_'))
+        .forEach(k => localStorage.removeItem(k))
+    } catch (e) {
+      // localStorage may be unavailable in private mode — ignore
+    }
+  }, [])
+
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-
-  const getCacheKey = (role, location, portals) => {
-    return `jobs_cache_${role}_${location}_${portals.join('_')}`
-  }
-
-  const getCachedJobs = (role, location, portals) => {
-    try {
-      const cacheKey = getCacheKey(role, location, portals)
-      const cached = localStorage.getItem(cacheKey)
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached)
-        const ageMinutes = (Date.now() - timestamp) / 1000 / 60
-        console.log(`Using cached data (${ageMinutes.toFixed(1)} minutes old)`)
-        return { data, ageMinutes }
-      }
-    } catch (e) {
-      console.error('Cache read error:', e)
-    }
-    return null
-  }
-
-  const cacheJobs = (role, location, portals, data) => {
-    try {
-      const cacheKey = getCacheKey(role, location, portals)
-      localStorage.setItem(cacheKey, JSON.stringify({
-        data,
-        timestamp: Date.now()
-      }))
-    } catch (e) {
-      console.error('Cache write error:', e)
-    }
-  }
 
   const handleSubmit = async (role, location, experience = '', portals = []) => {
     setLoading(true)
@@ -52,22 +32,6 @@ function App() {
     setView('loading')
 
     try {
-      // Check for cached data first
-      const cached = getCachedJobs(role, location, portals)
-      if (cached && cached.ageMinutes < 240) {
-        // Use cached data if less than 4 hours old
-        const data = cached.data
-        if (data.results && data.results.length > 0) {
-          // Show loader for 5 seconds for better UX
-          setTimeout(() => {
-            processJobResults(data, role, location, portals)
-            setLoading(false)
-          }, 5000)
-          return
-        }
-      }
-
-      // If no fresh cache, fetch from backend
       const response = await fetch(`${API_BASE}/workflow/run`, {
         method: 'POST',
         headers: {
@@ -77,8 +41,8 @@ function App() {
           role,
           location,
           experience: experience || undefined,
-          portals: portals.length > 0 ? portals : ['LinkedIn'],
-          num_results: 40
+          portals,
+          num_results: 100
         })
       })
 
@@ -88,11 +52,6 @@ function App() {
 
       const data = await response.json()
 
-      // Cache the results
-      if (data.results && data.results.length > 0) {
-        cacheJobs(role, location, portals, data)
-      }
-
       // Show loader for 5 seconds for better UX (applies to all roles)
       setTimeout(() => {
         processJobResults(data, role, location, portals)
@@ -100,23 +59,9 @@ function App() {
       }, 5000)
     } catch (err) {
       console.error('Workflow error:', err)
-      // If fetch fails but we have cache, use it
-      const cached = getCachedJobs(role, location, portals)
-      if (cached && cached.data.results && cached.data.results.length > 0) {
-        console.log('Using stale cache due to fetch error')
-        // Show loader for 5 seconds for better UX
-        setTimeout(() => {
-          processJobResults(cached.data, role, location, portals)
-          setLoading(false)
-        }, 5000)
-      } else {
-        setError(`Failed to search jobs. Make sure backend is running on port 8000. Error: ${err.message}`)
-        setView('input')
-        setLoading(false)
-      }
-    } finally {
-      // Note: setLoading(false) is called in setTimeout for cached scenarios
-      // Only call here if not using cached data
+      setError(`Failed to search jobs. Make sure backend is running on port 8000. Error: ${err.message}`)
+      setView('input')
+      setLoading(false)
     }
   }
 

@@ -4,33 +4,8 @@ import './LoaderPage.css'
 export default function LoaderPage({ role, location, portals, onNavigateToDashboard }) {
   const [progress, setProgress] = useState(0)
   const [currentStage, setCurrentStage] = useState(0)
-  const [isCached, setIsCached] = useState(false)
 
   useEffect(() => {
-    // Check if we're using cached data
-    const cacheKey = `jobs_cache_${role}_${location}_${portals.join('_')}`
-    try {
-      const cached = localStorage.getItem(cacheKey)
-      if (cached) {
-        const { timestamp } = JSON.parse(cached)
-        const ageMinutes = (Date.now() - timestamp) / 1000 / 60
-        if (ageMinutes < 240) {
-          setIsCached(true)
-          // Speed up progress for cached data
-          const fastInterval = setInterval(() => {
-            setProgress(prev => {
-              const newProgress = prev + 5
-              return Math.min(newProgress, 99)
-            })
-          }, 100)
-          return () => clearInterval(fastInterval)
-        }
-      }
-    } catch (e) {
-      console.error('Cache check error:', e)
-    }
-
-    // Normal progress for fresh fetch
     const interval = setInterval(() => {
       setProgress(prev => {
         const newProgress = prev + 2.5
@@ -104,7 +79,7 @@ export default function LoaderPage({ role, location, portals, onNavigateToDashbo
       <div className="loader-header">
         <h1 className="loader-title">AI-Powered Hiring Outreach</h1>
         <p className="loader-subtitle">
-          {isCached ? '⚡ Loading cached results...' : `🔍 Finding ${role} opportunities for you...`}
+          🔍 Finding {role} opportunities for you...
         </p>
       </div>
 

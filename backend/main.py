@@ -356,12 +356,19 @@ def run_workflow():
     role       = data.get("role")
     location   = data.get("location", "India")
     experience = data.get("experience")
+    portals    = data.get("portals") or None
     num_results = data.get("num_results", 100)
 
     if not role:
         return jsonify({"error": "Missing role"}), 400
 
-    result = orchestrator.run_workflow(role, location, num_results, experience)
+    result = orchestrator.run_workflow(
+        role,
+        location,
+        num_results,
+        experience=experience,
+        portals=portals,
+    )
 
     for msg in result.get("results", []):
         messages_db[msg["id"]] = msg

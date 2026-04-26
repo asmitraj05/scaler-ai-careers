@@ -7,21 +7,19 @@ const SCALER_COURSES = [
   'Full Stack Engineer',
   'Data Science Engineer',
   'DevOps Engineer',
-  'Mobile Developer (Android)',
-  'Mobile Developer (iOS)',
   'System Design Expert',
   'Machine Learning Engineer',
   'Cloud Engineer'
 ]
 
-const JOB_PORTALS = ['LinkedIn', 'Naukri', 'Instahyre', 'Indeed', 'Shine']
+const JOB_PORTALS = ['LinkedIn', 'Naukri', 'Instahyre', 'Indeed', 'Shine', 'Other']
 const ALL_PORTALS = 'ALL'
 
 export default function HomePage({ onSubmit, loading, onNavigateToDashboard }) {
   const [formData, setFormData] = useState({
     role: '',
     experience: '',
-    portals: ['LinkedIn', 'Naukri', 'Indeed'],
+    portals: [...JOB_PORTALS],
     skills: '',
     city: ''
   })
