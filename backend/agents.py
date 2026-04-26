@@ -156,6 +156,17 @@ def scrape_remoteok_jobs(role: str, num_results: int) -> List[Dict]:
 
 
 def fetch_linkedin_description(job_url: str) -> str:
+    """
+    Fetch a LinkedIn job detail page, find the <script type="application/ld+json">
+    tag, parse it as JSON, and return a fully clean plain-text description.
+
+    Pipeline:
+      1. Parse ld+json  → raw HTML string from data["description"]
+      2. html.unescape  → turn &amp; / &lt; / &nbsp; etc. into real characters
+      3. BeautifulSoup  → strip every HTML tag (<p> <strong> <br> <li> <ul> …)
+      4. re.sub         → drop any surviving escape sequences and extra whitespace
+      5. Return a single continuous readable paragraph with no markup at all
+    """
     import json as _json
     import re as _re
     from html import unescape as _unescape
@@ -166,26 +177,39 @@ def fetch_linkedin_description(job_url: str) -> str:
             return ""
 
         soup = BeautifulSoup(resp.text, "html.parser")
-        script_tag = soup.find("script", {"type": "application/ld+json"})
-        if not script_tag or not script_tag.string:
-            return ""
 
-        data = _json.loads(script_tag.string)
-        raw = data.get("description", "")
+        # There can be multiple ld+json script tags on a LinkedIn page.
+        # .string returns None when BS4 sees surrounding whitespace as a
+        # separate text node — so we use .get_text().strip() instead,
+        # and iterate all candidates until we find one with a "description".
+        raw = ""
+        for script_tag in soup.find_all("script", {"type": "application/ld+json"}):
+            text = script_tag.get_text(strip=True)
+            if not text:
+                continue
+            try:
+                data = _json.loads(text)
+                candidate = data.get("description", "")
+                if candidate:
+                    raw = candidate
+                    break  # found the JobPosting block, stop here
+            except Exception:
+                continue  # not valid JSON or not the right block, keep looking
+
         if not raw:
             return ""
 
-        # Step 1: unescape HTML entities (&lt; → <, &amp; → &, &nbsp; → space)
+        # Step 1: unescape HTML entities  (&lt; → <,  &amp; → &,  &nbsp; → space)
         unescaped = _unescape(raw)
 
-        # Step 2: strip every HTML tag
+        # Step 2: strip every HTML tag — BS4 handles nested / malformed markup safely
         plain = BeautifulSoup(unescaped, "html.parser").get_text(separator=" ")
 
-        # Step 3: remove literal escape sequences that may survive as text
+        # Step 3: remove literal escape sequences that may have survived as text
         plain = plain.replace("\\n", " ").replace("\\t", " ") \
-                     .replace("\\r", " ").replace("\\", "")
+            .replace("\\r", " ").replace("\\", "")
 
-        # Step 4: collapse ALL whitespace → single space
+        # Step 4: collapse ALL whitespace (newlines, tabs, multiple spaces) → one space
         plain = _re.sub(r"\s+", " ", plain)
 
         return plain.strip()
