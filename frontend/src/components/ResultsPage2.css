@@ -963,6 +963,10 @@
   list-style: none;
 }
 
+.detail-section ul.desc-list {
+  list-style: none;
+}
+
 .desc-list li {
   position: relative;
   padding: 0.15rem 0 0.15rem 0.85rem;

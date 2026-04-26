@@ -49,6 +49,7 @@ const LINKEDIN_SLUG_OVERRIDES = {
   'tesco': '-tesco',
   'kronosx': 'kronosxai',
   'kronosx ai': 'kronosxai',
+  'deqode': 'deqodesolutions',
 }
 
 function getLinkedInCompanySlug(company) {
@@ -63,8 +64,37 @@ function getLinkedInCompanySlug(company) {
 
 // Parse raw LinkedIn description text into structured blocks (headings, lists, paragraphs)
 function FormattedDescription({ text }) {
+  const cleanText = (() => {
+    if (!text) return ''
+    let s = String(text)
+    // Convert common block-level HTML tags to newlines so structure is preserved
+    s = s.replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    s = s.replace(/<\s*\/\s*(p|div|li|h[1-6]|tr|section|article)\s*>/gi, '\n')
+    s = s.replace(/<\s*li\s*[^>]*>/gi, '• ')
+    // Strip remaining HTML tags
+    s = s.replace(/<[^>]+>/g, '')
+    // Decode common HTML entities
+    const entities = {
+      '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"',
+      '&#39;': "'", '&apos;': "'", '&nbsp;': ' ', '&bull;': '•',
+      '&middot;': '·', '&mdash;': '—', '&ndash;': '–', '&hellip;': '…',
+      '&rsquo;': '’', '&lsquo;': '‘', '&rdquo;': '”', '&ldquo;': '“',
+    }
+    s = s.replace(/&(?:amp|lt|gt|quot|#39|apos|nbsp|bull|middot|mdash|ndash|hellip|rsquo|lsquo|rdquo|ldquo);/g, m => entities[m] || m)
+    // Numeric entities
+    s = s.replace(/&#(\d+);/g, (_, n) => {
+      try { return String.fromCodePoint(parseInt(n, 10)) } catch { return '' }
+    })
+    s = s.replace(/&#x([0-9a-fA-F]+);/g, (_, n) => {
+      try { return String.fromCodePoint(parseInt(n, 16)) } catch { return '' }
+    })
+    // Collapse 3+ newlines and trailing whitespace per line
+    s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n')
+    return s
+  })()
+
   const blocks = []
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean)
 
   let currentList = null
   const flushList = () => {
@@ -75,7 +105,12 @@ function FormattedDescription({ text }) {
   }
 
   const isBullet = (l) => /^([·•●▪◦*\-–—]|\d+[.)])\s+/.test(l)
-  const stripBullet = (l) => l.replace(/^([·•●▪◦*\-–—]|\d+[.)])\s+/, '')
+  const stripBullet = (l) => {
+    let out = l
+    let prev
+    do { prev = out; out = out.replace(/^([·•●▪◦*\-–—]|\d+[.)])\s+/, '') } while (out !== prev)
+    return out
+  }
   const isHeading = (l) =>
     l.length < 80 && l.endsWith(':') && !isBullet(l)
 
@@ -249,21 +284,6 @@ function JobListPanel({ jobs, selectedJobId, onSelectJob, currentPage, onPageCha
       <div className="list-header">
         <h2>Jobs Found{searchParams.role ? `: ${searchParams.role}` : ''}</h2>
         <span className="jobs-count">{jobs.length}</span>
-        {/* Platform diversity badges */}
-        {diversePlatforms.length > 1 && (
-          <div className="platform-diversity">
-            {diversePlatforms.map((platform) => (
-              <span
-                key={platform}
-                className="diversity-badge"
-                style={{ backgroundColor: platformColors[platform] }}
-                title={platform}
-              >
-                {platform.substring(0, 3)}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Jobs List */}
@@ -374,42 +394,13 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
   const [isPushing, setIsPushing] = useState(false)
   const [showOutreachModal, setShowOutreachModal] = useState(false)
   const [realDescription, setRealDescription] = useState(null)
-  const [descLoading, setDescLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const jobPageUrl = job?.jobUrl || job?.job_url || ''
-  const isLinkedInJob =
-    (job?.platform || '').toLowerCase() === 'linkedin' ||
-    /linkedin\.com/i.test(jobPageUrl)
 
   useEffect(() => {
-    setRealDescription(null)
-    if (!jobPageUrl || !isLinkedInJob) return
-    setDescLoading(true)
-    fetch(`http://localhost:8000/job-description?url=${encodeURIComponent(jobPageUrl)}`)
-      .then(r => r.json())
-      .then(data => {
-        const desc = data.description || null
-        setRealDescription(desc)
-        // Generate contextual outreach using the fetched description
-        return fetch('http://localhost:8000/generate-outreach', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            company: job?.company || '',
-            role: job?.role || '',
-            recruiter_name: job?.recruiter?.name || 'Hiring Team',
-            description: desc || '',
-          }),
-        })
-      })
-      .then(r => r && r.json())
-      .then(data => {
-        if (data && data.message) setMessage(data.message)
-      })
-      .catch(err => { console.error('[JobDesc] error:', err) })
-      .finally(() => setDescLoading(false))
-  }, [job?.id, jobPageUrl, isLinkedInJob])
+    setRealDescription(job?.description || null)
+  }, [job?.id, job?.description])
 
   if (!job) {
     return (
@@ -553,9 +544,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
         <section className="detail-section">
           <h3>Job Description</h3>
           <div className="description-box">
-            {descLoading ? (
-              <p className="desc-muted">Loading description...</p>
-            ) : realDescription ? (
+            {realDescription ? (
               <FormattedDescription text={realDescription} />
             ) : (
               <p className="desc-muted">
@@ -921,20 +910,6 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
             >
               Outreach Dashboard
             </button>
-            <span className="status-badge">
-              {jobs.length} opportunities | {jobs.filter((j) => j.pushed).length} sent
-            </span>
-            {lastUpdated !== null && (
-              <span
-                className="last-updated-badge"
-                title="New jobs will be fetched every 4 hours automatically"
-              >
-                Updated {lastUpdated === 0 ? 'just now' :
-                  lastUpdated < 60 ? `${lastUpdated}m ago` :
-                  `${Math.floor(lastUpdated / 60)}hr ${lastUpdated % 60}m ago`
-                }
-              </span>
-            )}
           </div>
         </div>
       </header>

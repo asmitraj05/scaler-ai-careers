@@ -185,7 +185,7 @@ function App() {
             role: result.job_title || 'Unknown Role',
             location: result.job['city'] || result.job['full_address'] || result.job['state'] || result.job['location'] || 'India',
             platform: result.job['source_portal'] || result.job['portal_name'] || 'LinkedIn',
-            jobUrl: result.job['apply_link'] || result.job['job_url'] || result.job_url || '#',
+            jobUrl: (result.job['apply_link'] || result.job['job_url'] || result.job_url || '#').replace(/^(https?:\/\/)([a-z]{2,3})\.linkedin\.com\//i, '$1www.linkedin.com/'),
             postedDate: postedDateDisplay,
             postedDateMs: postedDateMs,
             experience: experience,
@@ -200,7 +200,8 @@ function App() {
             message: result.message_body || `Hi ${result.recruiter_name},\n\nI came across your opening for ${result.job_title} at ${result.company_name}.\n\nI have extensive experience with the technologies and practices your team uses. I believe I would be a great fit for this role.\n\nWould love to discuss how I can contribute to your team.\n\nBest regards,\nScaler Academy`,
             pushed: false,
             messageGenerated: true,
-            tech_stack: result.job['tech_stack'] || []
+            tech_stack: result.job['tech_stack'] || [],
+            description: result.job['description'] || ''
           }
         })
 
