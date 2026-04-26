@@ -44,9 +44,10 @@ export default function OutreachDashboard({ onNavigateBack }) {
       const userId = localStorage.getItem('linkedin_user_id')
 
       // Use LinkedIn-synced endpoint if user is authenticated, otherwise use general endpoint
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
       const endpoint = userId
-        ? `http://localhost:8000/outreach-dashboard-with-linkedin?user_id=${userId}`
-        : 'http://localhost:8000/outreach-dashboard'
+        ? `${API_BASE}/outreach-dashboard-with-linkedin?user_id=${userId}`
+        : `${API_BASE}/outreach-dashboard`
 
       const response = await fetch(endpoint)
       if (response.ok) {
@@ -69,7 +70,7 @@ export default function OutreachDashboard({ onNavigateBack }) {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/sync-linkedin-connections', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/sync-linkedin-connections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId })

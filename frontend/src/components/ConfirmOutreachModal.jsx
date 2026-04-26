@@ -12,7 +12,7 @@ export default function ConfirmOutreachModal({ job, onConfirm, onCancel }) {
 
     try {
       // Get LinkedIn OAuth URL
-      const response = await fetch('http://localhost:8000/auth/linkedin/login', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/auth/linkedin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })

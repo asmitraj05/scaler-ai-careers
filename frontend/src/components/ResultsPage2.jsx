@@ -416,7 +416,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
 
   const generateLinkedInUrl = async () => {
     try {
-      const response = await fetch('http://localhost:8000/linkedin/search-url', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/linkedin/search-url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -463,7 +463,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
     setShowOutreachModal(true)
 
     // Log outreach asynchronously in background (non-blocking)
-    fetch('http://localhost:8000/create-outreach', {
+    fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/create-outreach`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -654,7 +654,7 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
       console.log('✅ LinkedIn authenticated:', { userId, userName })
 
       // Associate recent outreach logs with this user
-      fetch('http://localhost:8000/associate-outreach-with-user', {
+      fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/associate-outreach-with-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId })

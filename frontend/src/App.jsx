@@ -11,7 +11,7 @@ function App() {
   const [error, setError] = useState(null)
   const [searchParams, setSearchParams] = useState({ role: '', location: '', portals: [] })
 
-  const API_BASE = 'http://localhost:8000'
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
   const getCacheKey = (role, location, portals) => {
     return `jobs_cache_${role}_${location}_${portals.join('_')}`
