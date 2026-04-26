@@ -46,6 +46,9 @@ const LINKEDIN_SLUG_OVERRIDES = {
   'meta': 'meta',
   'apple': 'apple',
   'netflix': 'netflix',
+  'tesco': '-tesco',
+  'kronosx': 'kronosxai',
+  'kronosx ai': 'kronosxai',
 }
 
 function getLinkedInCompanySlug(company) {
@@ -178,7 +181,7 @@ function FilterBar({ filters, onToggleFilter, onSelectAll, isAllSelected, select
         <div className="filter-group">
           <span className="filter-label">Platform:</span>
           <div className="filter-buttons">
-            {['LinkedIn', 'Naukri', 'Indeed', 'Instahyre'].map(platform => (
+            {['Others', 'LinkedIn', 'Naukri', 'Instahyre'].map(platform => (
               <button
                 key={platform}
                 className={`filter-button ${filters.platforms.includes(platform) ? 'active' : ''}`}
@@ -308,7 +311,7 @@ function JobListPanel({ jobs, selectedJobId, onSelectJob, currentPage, onPageCha
                       className="platform-dot"
                       style={{ backgroundColor: platformColors[job.platform] }}
                     />
-                    {job.platform}
+                    {job.platform === 'Indeed' ? 'Others' : job.platform}
                   </span>
                 </div>
 
@@ -517,7 +520,7 @@ function JobDetailPanel({ job, onBack, onPush, onSkip, isBulkSelectionActive = f
             style={{ backgroundColor: platformColors[job.platform] }}
             onClick={() => jobPageUrl && window.open(jobPageUrl, '_blank')}
           >
-            View Job on {job.platform}
+            View Jobs on Portal
           </button>
         </div>
       </div>
@@ -730,7 +733,8 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
     // Recalculate filtered jobs and select the first one
     const tempFiltered = jobs.filter(job => {
       if (filters.platforms.length > 0) {
-        const jobPlatform = (job.platform || 'LinkedIn').toLowerCase().trim()
+        const rawPlatform = (job.platform || 'LinkedIn').toLowerCase().trim()
+        const jobPlatform = rawPlatform === 'indeed' ? 'others' : rawPlatform
         const platformsLower = filters.platforms.map(p => p.toLowerCase().trim())
         if (!platformsLower.includes(jobPlatform)) return false
       }
@@ -800,7 +804,8 @@ export default function ResultsPage2({ jobs: initialJobs = [], onBack, searchPar
     const result = jobs.filter(job => {
       // Platform filter
       if (filters.platforms.length > 0) {
-        const jobPlatform = (job.platform || 'LinkedIn').toLowerCase().trim()
+        const rawPlatform = (job.platform || 'LinkedIn').toLowerCase().trim()
+        const jobPlatform = rawPlatform === 'indeed' ? 'others' : rawPlatform
         const platformsLower = filters.platforms.map(p => p.toLowerCase().trim())
         if (!platformsLower.includes(jobPlatform)) return false
       }
