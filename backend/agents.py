@@ -19,6 +19,8 @@ from models import (
 )
 import uuid
 import time
+import json
+import re
 import requests
 from job_store import upsert_job, normalize_linkedin_job, normalize_indeed_job
 
@@ -153,6 +155,45 @@ def scrape_remoteok_jobs(role: str, num_results: int) -> List[Dict]:
         return []
 
 
+def fetch_linkedin_description(job_url: str) -> str:
+    import json as _json
+    import re as _re
+    from html import unescape as _unescape
+
+    try:
+        resp = requests.get(job_url, headers=HEADERS, timeout=8)
+        if resp.status_code != 200:
+            return ""
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        script_tag = soup.find("script", {"type": "application/ld+json"})
+        if not script_tag or not script_tag.string:
+            return ""
+
+        data = _json.loads(script_tag.string)
+        raw = data.get("description", "")
+        if not raw:
+            return ""
+
+        # Step 1: unescape HTML entities (&lt; → <, &amp; → &, &nbsp; → space)
+        unescaped = _unescape(raw)
+
+        # Step 2: strip every HTML tag
+        plain = BeautifulSoup(unescaped, "html.parser").get_text(separator=" ")
+
+        # Step 3: remove literal escape sequences that may survive as text
+        plain = plain.replace("\\n", " ").replace("\\t", " ") \
+                     .replace("\\r", " ").replace("\\", "")
+
+        # Step 4: collapse ALL whitespace → single space
+        plain = _re.sub(r"\s+", " ", plain)
+
+        return plain.strip()
+
+    except Exception as e:
+        print(f"   [LD+JSON] Failed to parse description from {job_url}: {e}")
+        return ""
+
 def scrape_linkedin_jobs(
     role: str, location: str, num_results: int, experience: str = None
 ) -> List[Dict]:
@@ -248,20 +289,11 @@ def scrape_linkedin_jobs(
                         print(f"   [LinkedIn Filter] Skipped '{title}'")
                         continue
 
-                    # Scrape full description from the job detail page
-                    description_text = f"{company} is hiring for {title}"
-                    try:
-                        detail_resp = requests.get(job_url, headers=HEADERS, timeout=8)
-                        if detail_resp.status_code == 200:
-                            detail_soup = BeautifulSoup(detail_resp.text, "html.parser")
-                            desc_el = detail_soup.find(
-                                "div", class_="show-more-less-html__markup"
-                            )
-                            if desc_el:
-                                description_text = desc_el.get_text(separator="\n", strip=True)
-                        time.sleep(0.2)
-                    except Exception:
-                        pass  # fallback to placeholder description
+                    # Fetch plain-text description from ld+json structured data
+                    description_text = fetch_linkedin_description(job_url)
+                    if not description_text:
+                        description_text = f"{company} is hiring for {title}"
+                    time.sleep(0.2)
 
                     tech = extract_tech_from_text(title + " " + description_text)
 
